@@ -134,6 +134,122 @@ function initLong(t) {
   btn.addEventListener("click", function () { setOpen(rec, !rec.open, true); });
   longTables.push(rec);
   setOpen(rec, false, false);
+  initTools(rec, rows);
+}
+
+/* ── 1b. Filter and sort a long table ─────────────────────────────────────
+ * A table long enough to fold to its first rows also gets a filter box above
+ * it and sortable column headings. The filter matches the words in a row,
+ * ignoring case and macrons, shows every matching row (the fold opens while a
+ * filter is set) and says how many match. A heading is a button: ascending,
+ * then descending, then the table's own order again, said to a screen reader
+ * through aria-sort. Numbers sort as numbers (thousands separators and a
+ * trailing % allowed), everything else in New Zealand English order with
+ * numbers inside words compared as numbers, and empty cells last either way.
+ * Not on a table with more than one body or heading row, or whose cells span
+ * rows or whose headings span columns, where moving a row would break the
+ * rows around it; off with data-pk-tools="off". On paper every row prints. */
+function plain(s) { return String(s).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+function toolsFit(t, rows) {
+  if (t.closest('[data-pk-tools="off"]') || t.tBodies.length !== 1 || !t.tHead || t.tHead.rows.length !== 1) return false;
+  var spans = false;
+  each(t.tHead.rows[0].cells, function (c) { if (c.colSpan > 1 || c.rowSpan > 1) spans = true; });
+  rows.forEach(function (r) { each(r.cells, function (c) { if (c.rowSpan > 1) spans = true; }); });
+  return !spans;
+}
+function sortKey(text) {
+  var s = text.replace(/[\s,]/g, "").replace(/%$/, "");
+  return /^[-+]?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : null;
+}
+var COLLATE = window.Intl && Intl.Collator ? new Intl.Collator("en-NZ", { numeric: true, sensitivity: "base" }) : null;
+function initTools(rec, rows) {
+  var t = rec.table;
+  if (!toolsFit(t, rows)) return;
+  var body = t.tBodies[0], original = rows.slice();
+  var words = original.map(function (r) { return plain(r.textContent.replace(/\s+/g, " ")); });
+  var tools = el("div", "pk-tabletools"), box = el("input", "pk-filter"), count = el("span", "pk-filtercount");
+  box.type = "search";
+  box.placeholder = "Filter these " + rec.total.toLocaleString("en-NZ") + " rows";
+  box.setAttribute("aria-label", "Filter the rows of this table");
+  count.setAttribute("aria-live", "polite");
+  tools.appendChild(box);
+  tools.appendChild(count);
+  rec.box.parentNode.insertBefore(tools, rec.box);
+  var wasOpen = null, timer = null;
+  function filter() {
+    var q = plain(box.value.trim()), shown = 0;
+    original.forEach(function (r, i) {
+      var hit = !q || words[i].indexOf(q) >= 0;
+      r.classList.toggle("pk-filtered", !hit);
+      if (hit) shown++;
+    });
+    if (q) {
+      if (wasOpen === null) wasOpen = rec.open;
+      if (!rec.open) setOpen(rec, true, false);
+      rec.btn.parentNode.hidden = true;
+      count.textContent = shown.toLocaleString("en-NZ") + " of " + rec.total.toLocaleString("en-NZ") + " rows match";
+    } else {
+      rec.btn.parentNode.hidden = false;
+      if (wasOpen !== null && wasOpen !== rec.open) setOpen(rec, wasOpen, false);
+      wasOpen = null;
+      count.textContent = "";
+    }
+    rebuildAll();
+  }
+  box.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(filter, 120); });
+  rec.clearFilter = function () { if (box.value) { box.value = ""; filter(); } };
+  var heads = [].slice.call(t.tHead.rows[0].cells), state = { col: -1, dir: 0 };
+  heads.forEach(function (th, col) {
+    if (!th.textContent.trim()) return;
+    var b = el("button", "pk-sortbtn"), mark = el("span", "pk-sortmark");
+    b.type = "button";
+    mark.setAttribute("aria-hidden", "true");
+    while (th.firstChild) b.appendChild(th.firstChild);
+    b.appendChild(mark);
+    th.appendChild(b);
+    th.setAttribute("data-pk-col", String(col));
+    th.setAttribute("aria-sort", "none");
+    b.addEventListener("click", function () { sortBy(col); });
+  });
+  function sortBy(col) {
+    var dir = state.col === col ? (state.dir + 1) % 3 : 1;
+    state = { col: col, dir: dir };
+    var order = original.slice();
+    if (dir) {
+      var vals = order.map(function (r) { return r.cells[col] ? cellText(r.cells[col]) : ""; });
+      var nums = vals.map(sortKey);
+      var numeric = vals.every(function (v, i) { return !v || nums[i] !== null; }) && nums.some(function (n) { return n !== null; });
+      var idx = order.map(function (r, i) { return i; });
+      idx.sort(function (a, b) {
+        var va = vals[a], vb = vals[b];
+        if (!va || !vb) return !va && !vb ? a - b : (!va ? 1 : -1);
+        var d = numeric ? nums[a] - nums[b] : (COLLATE ? COLLATE.compare(va, vb) : (va < vb ? -1 : va > vb ? 1 : 0));
+        return (dir === 2 ? -d : d) || a - b;
+      });
+      order = idx.map(function (i) { return original[i]; });
+    }
+    order.forEach(function (r) { body.appendChild(r); });
+    order.forEach(function (r, n) {
+      r.classList.toggle("pk-more", n >= rec.cut);
+      r.classList.toggle("pk-edge", n === rec.cut - 1);
+    });
+    heads.forEach(function (th, i) {
+      if (th.hasAttribute("data-pk-col"))
+        th.setAttribute("aria-sort", i === col && dir ? (dir === 1 ? "ascending" : "descending") : "none");
+    });
+    rebuildAll();
+  }
+}
+/* A heading clicked in a pinned copy sorts the real table. */
+function sortFromCopy(e) {
+  var b = e.target && e.target.closest ? e.target.closest(".pk-float .pk-sortbtn") : null;
+  if (!b) return;
+  var th = b.closest("th, td"), shell = b.closest(".pk-float");
+  floats.forEach(function (f) {
+    if (f.shell !== shell) return;
+    var real = f.table.querySelector('th[data-pk-col="' + th.getAttribute("data-pk-col") + '"] .pk-sortbtn');
+    if (real) real.click();
+  });
 }
 function retryUndecided() {
   var wait = undecided;
@@ -143,6 +259,8 @@ function retryUndecided() {
 
 function openTableHolding(el) {
   if (!el || !el.closest) return;
+  var hid = el.closest("tr.pk-filtered");
+  if (hid) longTables.forEach(function (r) { if (r.table.contains(hid) && r.clearFilter) r.clearFilter(); });
   var t = el.closest("table.pk-collapsed");
   if (!t) return;
   longTables.forEach(function (r) { if (r.table === t) setOpen(r, true, false); });
@@ -226,6 +344,7 @@ function build(rec) {
     c.style.width = c.style.minWidth = c.style.maxWidth = w + "px";
     c.style.boxSizing = "border-box";
   });
+  each(clone.querySelectorAll("button"), function (b) { b.tabIndex = -1; });
   rec.copy.innerHTML = "";
   rec.copy.appendChild(clone);
   rec.copy.style.width = rec.table.getBoundingClientRect().width + "px";
@@ -1183,7 +1302,7 @@ function nameFor(box) {
 function grid(t) {
   var rows = [], taken = [];
   each(t.rows, function (tr, y) {
-    if (tr.closest("table") !== t) return;
+    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered")) return;
     var row = rows[y] = rows[y] || [], x = 0;
     each(tr.cells, function (c) {
       while (row[x] !== undefined) x++;
@@ -1206,6 +1325,8 @@ function cellText(c) {
 /* A cell as the reader sees it, without the page's own controls. */
 function cleanCell(c) {
   var k = c.cloneNode(true);
+  each(k.querySelectorAll(".pk-sortmark"), function (n) { n.remove(); });
+  each(k.querySelectorAll(".pk-sortbtn"), function (n) { n.replaceWith.apply(n, [].slice.call(n.childNodes)); });
   each(k.querySelectorAll("button, script, style, svg, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
   return k;
 }
@@ -1213,7 +1334,7 @@ function tableHtml(t) {
   var out = doc.createElement("table");
   out.setAttribute("style", "border-collapse:collapse;font-family:Calibri,Aptos,Arial,sans-serif;font-size:11pt");
   each(t.rows, function (tr) {
-    if (tr.closest("table") !== t) return;
+    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered")) return;
     var r = out.insertRow(-1);
     each(tr.cells, function (c) {
       var n = doc.createElement(c.tagName === "TH" ? "th" : "td"), k = cleanCell(c);
@@ -1627,6 +1748,7 @@ function init() {
   initPane();
   initCopy();
   initBlockCopy();
+  doc.addEventListener("click", sortFromCopy);
   initLinks();
   initTheme();
   watchScheme();

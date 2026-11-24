@@ -1,12 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Copy a code or message block: a labelled, always-visible button on every
-  `<pre>`, every `.pk-message` and any element with `data-pk-copy-label`.
-- `set_skip` replaces its tag where it stands, so it and `set_marks` can be
-  re-applied in either order without moving anything.
-
 ## 0.1.0 (unreleased)
 
 - First public version: `page`, `apply`, `compose`, `check`, `mark_parts`,
@@ -23,3 +16,9 @@
 - `check()` also finds a base address, a meta refresh, network hints, an
   external video poster or SVG image, form actions and link pings.
 - The generator version is the package version.
+- Filter and sort a long table: a filter box above it and sortable column
+  headings, macron- and case-insensitive, announced to screen readers.
+- Copy a code or message block: a labelled, always-visible button on every
+  `<pre>`, every `.pk-message` and any element with `data-pk-copy-label`.
+- `set_skip` replaces its tag where it stands, so it and `set_marks` can be
+  re-applied in either order without moving anything.

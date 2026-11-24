@@ -88,6 +88,15 @@ or on paper, the page shows everything.
   table's preview with `data-pk-preview="5"` or `"all"`; leave a table alone
   with `data-pk="off"`. A page made another way can name tables to leave alone
   with `set_skip(html, "table.layout, #summary")`.
+- **Filter and sort a long table.** A table long enough to open at its first
+  rows also gets a filter box above it and sortable column headings. The
+  filter ignores case and macrons, shows every matching row and says how many
+  match; clearing it puts the table back as it was. A heading sorts
+  ascending, then descending, then back to the table's own order, announced
+  through `aria-sort`; numbers sort as numbers, words in New Zealand English
+  order, empty cells last. A filtered table copies only the rows shown. Not on
+  a table whose cells span rows or whose headings span columns; off with
+  `data-pk-tools="off"`. On paper every row prints.
 - **Pinned headings.** A table's heading row stays in view while you scroll
   it, including sideways.
 - **Charts draw when seen.** When a chart scrolls into view (or the part or

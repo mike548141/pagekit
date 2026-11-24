@@ -256,3 +256,22 @@ button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; bor
 .pk-blockcopy:hover { border-color: var(--pk-solid); }
 .pk-blockcopy:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
 @media print { .pk-blockbar { display: none; } }
+
+/* 1b. filter and sort a long table */
+.pk-tabletools { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; margin: .6rem 0 .45rem; }
+.pk-filter { font: inherit; font-size: .9rem; padding: 5px 10px; min-width: min(320px, 100%); color: var(--pk-ink);
+  background: var(--pk-bg); border: 1px solid var(--pk-line); border-radius: 6px; }
+.pk-filter:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
+.pk-filtercount { font-size: .85rem; color: var(--pk-muted); }
+tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: none; }
+.pk-sortbtn { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; text-align: inherit;
+  cursor: pointer; display: inline-flex; align-items: baseline; gap: .3em; }
+.pk-sortbtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+.pk-sortmark::after { content: "\2195"; font-size: .8em; opacity: .45; }
+th[aria-sort="ascending"] .pk-sortmark::after { content: "\25B2"; opacity: 1; }
+th[aria-sort="descending"] .pk-sortmark::after { content: "\25BC"; opacity: 1; }
+@media print {
+  .pk-tabletools { display: none; }
+  tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: table-row; }
+  .pk-sortmark { display: none; }
+}

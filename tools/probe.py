@@ -332,6 +332,73 @@ BLOCK_PICK = r"""async (kind) => { const d = document;
   return {shown, label: b.textContent.trim(), text, n: window.__pkcopy.length}; }"""
 
 
+# A long table's filter and sort, driven by real typing and real clicks.
+TOOLS_PICK = r"""async () => { const d = document;
+  d.querySelectorAll('[data-probe]').forEach(x => x.removeAttribute('data-probe'));
+  const tools = [...d.querySelectorAll('.pk-tabletools')].find(x => !x.closest('.pk-part[hidden], details:not([open])'));
+  if (!tools) return null;
+  let t = tools.nextElementSibling; t = t.matches('table') ? t : t.querySelector('table');
+  tools.scrollIntoView({block: 'start', behavior: 'instant'});
+  await new Promise(r => setTimeout(r, 150));
+  tools.querySelector('.pk-filter').setAttribute('data-probe', 'filter');
+  const rows = [...t.tBodies[0].rows], heads = [...t.tHead.rows[0].cells];
+  // A column whose every cell is a number, and a word from a row deep in the table.
+  const num = heads.findIndex((h, i) => h.querySelector('.pk-sortbtn') && rows.every(r => /^[-+]?[\d,]*\.?\d+%?$/.test(r.cells[i].textContent.trim())));
+  const word = rows[Math.min(rows.length - 1, 30)].cells[1].textContent.trim().split(/\s+/)[0];
+  if (num >= 0) heads[num].querySelector('.pk-sortbtn').setAttribute('data-probe', 'sort');
+  t.setAttribute('data-probe', 'table');
+  return {num, word, total: rows.length}; }"""
+TOOLS_STATE = r"""(q) => { const t = document.querySelector('table[data-probe="table"]'), seen = r => r.getClientRects().length > 0;
+  const plain = s => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const rows = [...t.tBodies[0].rows], shown = rows.filter(seen);
+  return {shown: shown.length, all: rows.length, matching: rows.filter(r => !q || plain(r.textContent).includes(plain(q))).length,
+    allMatch: shown.every(r => !q || plain(r.textContent).includes(plain(q))),
+    count: ((t.closest('.pk-tablewrap') || t).previousElementSibling || {}).textContent || ''}; }"""
+TOOLS_ORDER = r"""(col) => { const t = document.querySelector('table[data-probe="table"]');
+  const v = [...t.tBodies[0].rows].map(r => parseFloat(r.cells[col].textContent.replace(/[,%\s]/g, '')));
+  const th = t.tHead.rows[0].cells[col];
+  return {v, sort: th.getAttribute('aria-sort'), first: t.tBodies[0].rows[0].id || t.tBodies[0].rows[0].textContent.slice(0, 20)}; }"""
+
+
+def tools_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    got = frame.evaluate(TOOLS_PICK)
+    if not got:
+        return out
+    first0 = frame.evaluate(TOOLS_ORDER, max(got["num"], 0))["first"]
+    before = frame.evaluate(TOOLS_STATE, "")["shown"]
+    f = frame.locator('[data-probe="filter"]')
+    f.click()
+    f.press_sequentially(got["word"], delay=30)
+    pg.wait_for_timeout(500)
+    s = frame.evaluate(TOOLS_STATE, got["word"])
+    out.append(["a long table's filter shows only and all matching rows",
+                s["allMatch"] and s["shown"] == s["matching"] and 0 < s["shown"] < s["all"] and f"{s['shown']} of" in s["count"],
+                f"{got['word']!r}: {s['shown']} shown, {s['matching']} match, of {s['all']}; says {s['count'].strip()!r}"])
+    f.fill("")
+    f.press("Backspace")
+    pg.wait_for_timeout(500)
+    s = frame.evaluate(TOOLS_STATE, "")
+    out.append(["clearing the filter puts the table back as it was", s["shown"] == before and not s["count"].strip().endswith("match"),
+                f"{s['shown']} of {s['all']} rows shown, {before} before filtering"])
+    if got["num"] >= 0:
+        b = frame.locator('[data-probe="sort"]')
+        b.click()
+        pg.wait_for_timeout(250)
+        up = frame.evaluate(TOOLS_ORDER, got["num"])
+        b.click()
+        pg.wait_for_timeout(250)
+        down = frame.evaluate(TOOLS_ORDER, got["num"])
+        b.click()
+        pg.wait_for_timeout(250)
+        back = frame.evaluate(TOOLS_ORDER, got["num"])
+        ok = (up["v"] == sorted(up["v"]) and up["sort"] == "ascending" and down["v"] == sorted(down["v"], reverse=True)
+              and down["sort"] == "descending" and back["sort"] == "none" and back["first"] == first0)
+        out.append(["a heading sorts up, down, then back to the table's order", ok,
+                    f"{up['sort']}, {down['sort']}, {back['sort']}; first row back to {back['first']!r}"])
+    return out
+
+
 def block_checks(pg, frame, mode: str) -> list:
     out: list = []
     for kind, label in (("code", "Copy code"), ("message", "Copy message")):
@@ -437,6 +504,10 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                         checks += link_checks(pg, frame, mode)
                     except Exception as e:
                         checks.append(["section links", False, str(e).splitlines()[0][:160]])
+                    try:
+                        checks += tools_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["filtering and sorting a table", False, str(e).splitlines()[0][:160]])
                     try:
                         checks += block_checks(pg, frame, mode)
                     except Exception as e:
