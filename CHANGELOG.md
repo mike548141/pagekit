@@ -22,3 +22,5 @@
   `<pre>`, every `.pk-message` and any element with `data-pk-copy-label`.
 - `set_skip` replaces its tag where it stands, so it and `set_marks` can be
   re-applied in either order without moving anything.
+- A table's filter matches the words in its cells, never the end of one cell
+  run into the start of the next.

@@ -344,16 +344,29 @@ TOOLS_PICK = r"""async () => { const d = document;
   const rows = [...t.tBodies[0].rows], heads = [...t.tHead.rows[0].cells];
   // A column whose every cell is a number, and a word from a row deep in the table.
   const num = heads.findIndex((h, i) => h.querySelector('.pk-sortbtn') && rows.every(r => /^[-+]?[\d,]*\.?\d+%?$/.test(r.cells[i].textContent.trim())));
-  const word = rows[Math.min(rows.length - 1, 30)].cells[1].textContent.trim().split(/\s+/)[0];
+  // A word that some rows hold and some do not, so the filter has work to show.
+  const plain = s => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const texts = rows.map(r => plain([...r.cells].map(c => c.textContent).join(' ')));
+  let word = '';
+  for (const r of rows.slice(Math.min(rows.length - 1, 30)).concat(rows)) {
+    for (const w of [...r.cells].map(c => c.textContent).join(' ').split(/[\s,;:()]+/)) {
+      if (w.length < 3) continue;
+      const n = texts.filter(x => x.includes(plain(w))).length;
+      if (n > 0 && n < rows.length) { word = w; break; }
+    }
+    if (word) break;
+  }
+  if (!word) return null;
+  tools.setAttribute('data-probe', 'tools');
   if (num >= 0) heads[num].querySelector('.pk-sortbtn').setAttribute('data-probe', 'sort');
   t.setAttribute('data-probe', 'table');
   return {num, word, total: rows.length}; }"""
 TOOLS_STATE = r"""(q) => { const t = document.querySelector('table[data-probe="table"]'), seen = r => r.getClientRects().length > 0;
   const plain = s => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const rows = [...t.tBodies[0].rows], shown = rows.filter(seen);
-  return {shown: shown.length, all: rows.length, matching: rows.filter(r => !q || plain(r.textContent).includes(plain(q))).length,
-    allMatch: shown.every(r => !q || plain(r.textContent).includes(plain(q))),
-    count: ((t.closest('.pk-tablewrap') || t).previousElementSibling || {}).textContent || ''}; }"""
+  const rows = [...t.tBodies[0].rows], shown = rows.filter(seen), text = r => plain([...r.cells].map(c => c.textContent).join(' '));
+  return {shown: shown.length, all: rows.length, matching: rows.filter(r => !q || text(r).includes(plain(q))).length,
+    allMatch: shown.every(r => !q || text(r).includes(plain(q))),
+    count: (document.querySelector('[data-probe="tools"] .pk-filtercount') || {}).textContent || ''}; }"""
 TOOLS_ORDER = r"""(col) => { const t = document.querySelector('table[data-probe="table"]');
   const v = [...t.tBodies[0].rows].map(r => parseFloat(r.cells[col].textContent.replace(/[,%\s]/g, '')));
   const th = t.tHead.rows[0].cells[col];
@@ -373,7 +386,7 @@ def tools_checks(pg, frame, mode: str) -> list:
     pg.wait_for_timeout(500)
     s = frame.evaluate(TOOLS_STATE, got["word"])
     out.append(["a long table's filter shows only and all matching rows",
-                s["allMatch"] and s["shown"] == s["matching"] and 0 < s["shown"] < s["all"] and f"{s['shown']} of" in s["count"],
+                s["allMatch"] and s["shown"] == s["matching"] and 0 < s["shown"] < s["all"] and f"{s['shown']} of" in s["count"].replace(",", ""),
                 f"{got['word']!r}: {s['shown']} shown, {s['matching']} match, of {s['all']}; says {s['count'].strip()!r}"])
     f.fill("")
     f.press("Backspace")

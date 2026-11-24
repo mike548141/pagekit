@@ -166,7 +166,11 @@ function initTools(rec, rows) {
   var t = rec.table;
   if (!toolsFit(t, rows)) return;
   var body = t.tBodies[0], original = rows.slice();
-  var words = original.map(function (r) { return plain(r.textContent.replace(/\s+/g, " ")); });
+  /* Cells joined by a space: a filter matches words a reader can see, never
+   * the end of one cell run into the start of the next. */
+  var words = original.map(function (r) {
+    return plain([].map.call(r.cells, function (c) { return c.textContent; }).join(" ").replace(/\s+/g, " "));
+  });
   var tools = el("div", "pk-tabletools"), box = el("input", "pk-filter"), count = el("span", "pk-filtercount");
   box.type = "search";
   box.placeholder = "Filter these " + rec.total.toLocaleString("en-NZ") + " rows";
