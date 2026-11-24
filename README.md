@@ -69,6 +69,16 @@ or on paper, the page shows everything.
   `<section>` carrying the class `cls` turns into a part, titled by its first
   h2 (without a number shown beside it), and its in-page links are then
   followed by the kit, so a link shows the part it points into.
+- **Tabs within a section.** A `<div class="pk-tabs">` holding two or more
+  `<section class="pk-tab">` shows one pane at a time under a row of tabs:
+  options side by side in a decision paper, say. Each tab is named by its
+  pane's `data-pk-title`, else by the pane's first heading, which the tab then
+  stands in for on screen (screen readers, print and the no-script page still
+  have it). Name the group for screen readers with `aria-label` on the
+  `div`. Click a tab, or use Left, Right, Home and End once one has focus. A
+  link, a search result or find-in-page reaching a pane not shown opens its
+  tab (in Safari the find shortcut shows every pane, as it shows every part).
+  With scripting off, or on paper, every pane shows under its heading.
 - **Published date.** `<time data-pk-published>` in a masthead is filled by
   `set_published(html, date)`. `fingerprint(html)` digests only the words a
   reader reads (not styling, scripts, controls or spacing), so a caller can

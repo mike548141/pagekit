@@ -344,3 +344,23 @@ def test_a_link_the_page_already_makes_to_a_source_gets_its_card():
     assert blob["REF-12"]["m"] == "A society"
     assert kit.link_sources(out, "p.html") == out
 
+
+
+def test_kit_js_never_defines_a_function_twice():
+    # kit.js is one scope: a second definition silently replaces the first.
+    names = re.findall(r"^\s*function (\w+)\(", (ROOT / "src/pagekit/kit.js").read_text(encoding="utf-8"), re.M)
+    twice = sorted({n for n in names if names.count(n) > 1})
+    assert not twice, f"defined more than once in kit.js: {twice}"
+
+
+def test_tabs_show_every_pane_without_the_script_and_on_paper():
+    # Tabs are marked up as plain sections, so a page without scripting shows
+    # every pane under its heading; on paper the stylesheet shows them all.
+    sample = (ROOT / "examples/sample.html").read_text(encoding="utf-8")
+    group = re.search(r'<div class="pk-tabs"[^>]*>(.*?)</div>\s*<h3', sample, re.S)
+    assert group, "the sample shows tabs"
+    panes = re.findall(r'<section class="pk-tab"[^>]*>\s*<h4\b', group.group(1))
+    assert len(panes) >= 2 and "hidden" not in group.group(0)
+    css = (ROOT / "src/pagekit/kit.css").read_text(encoding="utf-8")
+    assert re.search(r"@media print\s*\{[^}]*\.pk-tablist[^}]*display:\s*none", css)
+    assert re.search(r"\.pk-tab\[hidden\][^{]*\{[^}]*display:\s*block !important", css)

@@ -117,7 +117,7 @@ in atelier and is read on demand — never wholesale.
 **PageKit** turns HTML into one self-contained, brandable page with reader
 features built in: a contents panel with search, parts shown one at a time,
 long tables that open at their first rows, pinned table headings, links that
-land in closed sections, identifiers that explain themselves, copying a table
+land in closed sections, tabs within a section, identifiers that explain themselves, copying a table
 or a diagram out, a link to any section, charts that draw when seen, security
 markings and watermarks. It is standard-library Python plus one stylesheet and
 one script, inlined into every page. `README.md` is the reference.

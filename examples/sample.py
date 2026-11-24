@@ -3,7 +3,7 @@
 
 The subject is an invented community garden's season report. Every name,
 place and figure is invented. The page is the kit's own test bed: three
-parts, long and wide tables, folds, a drawing and a chart, callouts, chips,
+parts, long and wide tables, folds, tabs, a drawing and a chart, callouts, chips,
 links across parts, an outside link, and te reo Māori with macrons (one word
 deliberately written decomposed, to prove the build composes it).
 
@@ -174,7 +174,23 @@ of the season with the rain, the heat and who turned up.</p>
 {season_log()}
 <div class="pk-callout attn"><p class="pk-callout-title">Decision needed</p>
 <p>The north terrace lost most of its beans to wind in December (GS-02). A windbreak of flax along its
-edge would take one working bee, and it is what <a href="#goal-2">goal 2</a> asks for.</p></div>
+edge would take one working bee, and it is what <a href="#goal-2">goal 2</a> asks for. Two other
+ways were looked at as well; <a href="#option-cloth">shade cloth</a> is the cheapest.</p></div>
+<h3 id="windbreak-options">Three ways to break the wind</h3>
+<p>Each option on its own tab, so they can be read side by side.</p>
+<div class="pk-tabs" aria-label="Windbreak options">
+<section class="pk-tab"><h4 id="option-flax">Flax hedge</h4>
+<p>Harakeke planted a metre apart along the terrace edge. It takes two seasons to grow tall enough,
+costs about $300 in plants, and gives weavers a crop as well.</p>
+<ul><li>Lasts for decades with a trim each autumn.</li><li>Needs watering through its first summer.</li></ul></section>
+<section class="pk-tab"><h4 id="option-fence">Timber fence</h4>
+<p>A slatted fence, half open so the wind slows rather than swirls over it. One working bee builds it;
+the timber costs about $1,400.</p>
+<ul><li>Works from the day it is built.</li><li>Needs staining every few years.</li></ul></section>
+<section class="pk-tab" data-pk-title="Shade cloth"><h4 id="option-cloth">Shade cloth on waratahs</h4>
+<p>Windbreak cloth stretched between steel posts. About $250, up in an afternoon, but the cloth
+tears in a storm and lasts three or four seasons.</p></section>
+</div>
 <h3 id="working-bee">Calling the working bee</h3>
 <p>The note that went to every group, ready to copy into an email or a text:</p>
 <div class="pk-message"><p>Kia ora koutou,</p>
@@ -195,7 +211,7 @@ zone orchard     start 19:30  minutes 20  days sat</code></pre>
 def part_goals() -> str:
     goals = [
         ("Every group has a plot in a raised bed", "Five of six groups", "warn"),
-        ("The north terrace has a windbreak", "Not started", "bad"),
+        ('The north terrace has a windbreak (<a href="#option-fence">the fence</a> is the likeliest)', "Not started", "bad"),
         ("Fewer than one plot in ten fails", f"{FAILED} of 240 failed", "ok" if FAILED < 24 else "warn"),
         ("Seed saved from every heritage crop", "Seven of nine crops", "warn"),
         ("A working bee every month", "Done", "ok"),

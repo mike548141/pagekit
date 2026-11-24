@@ -32,3 +32,6 @@
   card too.
 - Inside a document viewer's frame the kit follows every page's in-page
   links itself, so a link into a closed section opens it there as well.
+- Tabs within a section: `<div class="pk-tabs">` with `<section class="pk-tab">`
+  panes shows one at a time under a row of tabs, by mouse or keyboard; links,
+  search, find-in-page and print reach every pane.

@@ -88,7 +88,7 @@ function setOpen(rec, open, keepPlace) {
 
 function hiddenNow(t) {
   return !t.getClientRects().length || t.closest("details:not([open])") ||
-    t.closest(".pk-part[hidden]");
+    t.closest(".pk-part[hidden], .pk-tab[hidden]");
 }
 
 function initLong(t) {
@@ -426,7 +426,7 @@ function idFor(el, hint) {
   if (!el.id) el.id = "pk-" + hint;
   return el.id;
 }
-var OUTSIDE = ".pk-panel, .pk-float, .pk-partnav, .pk-pane, .pk-copymenu, .pk-toast, nav, header, footer, figure, .pane, .toolbar, script, style";
+var OUTSIDE = ".pk-panel, .pk-float, .pk-partnav, .pk-tablist, .pk-pane, .pk-copymenu, .pk-toast, nav, header, footer, figure, .pane, .toolbar, script, style";
 /* A page can keep a region out of the panel's contents (data-pk-nav="off": a
  * tree of folds is not sub-sections) and out of the panel's search
  * (data-pk-find="off": text the page keeps hidden for its own script). */
@@ -862,6 +862,7 @@ function reveal(t) {
   openTableHolding(t);
   var p = partOf(t);
   if (p && parts.length && !allMode && p !== current) showPart(p, { scroll: false, hash: false, quiet: false });
+  openTabHolding(t);
 }
 
 function go(t, id, flash) {
@@ -1742,6 +1743,100 @@ function initBlockCopy() {
   });
 }
 
+/* ── 12. Tabs within a section ────────────────────────────────────────────
+ * A <div class="pk-tabs"> holding two or more <section class="pk-tab"> shows
+ * one pane at a time under a row of tabs: options side by side in a decision
+ * paper, say. A tab is named by its pane's data-pk-title, else by the pane's
+ * first heading, which the tab then stands in for on screen. The tabs follow
+ * the usual pattern for tabs: Left and Right move between them (Home and End
+ * to the ends) and the pane follows. A pane not shown is hidden "until found"
+ * where the browser offers it, so find-in-page still reaches it; elsewhere
+ * the find shortcut shows every pane. Search, links and print reach every
+ * pane. With scripting off, or on paper, every pane shows under its heading. */
+var tabGroups = [];
+function tabOf(n) { return n && n.closest ? n.closest(".pk-tabs > .pk-tab") : null; }
+function selectTab(g, i, opts) {
+  opts = opts || {};
+  g.every = false;
+  g.box.classList.remove("pk-tabs-every");
+  g.panes.forEach(function (p, k) {
+    var on = k === i;
+    g.tabs[k].setAttribute("aria-selected", on ? "true" : "false");
+    g.tabs[k].tabIndex = on ? 0 : -1;
+    if (on) p.removeAttribute("hidden"); else conceal(p);
+  });
+  g.current = i;
+  if (opts.focus) try { g.tabs[i].focus(); } catch (e) {}
+  if (opts.hash) setHash(g.panes[i].id);
+  retryUndecided();
+  rebuildAll();
+}
+/* Every pane at once, each under its own heading: for find-in-page where
+ * the browser cannot reveal a hidden match. A tab click returns to one. */
+function everyTab(g) {
+  g.every = true;
+  g.box.classList.add("pk-tabs-every");
+  g.panes.forEach(function (p, k) { p.removeAttribute("hidden"); g.tabs[k].setAttribute("aria-selected", "false"); });
+  retryUndecided();
+  rebuildAll();
+}
+/* Opens the pane holding n, and any pane holding that, outward. */
+function openTabHolding(n) {
+  var p = tabOf(n);
+  while (p) {
+    tabGroups.forEach(function (g) {
+      var i = g.panes.indexOf(p);
+      if (i >= 0 && !g.every && i !== g.current) selectTab(g, i);
+    });
+    p = tabOf(p.parentElement);
+  }
+}
+function initTabs() {
+  each(doc.querySelectorAll(".pk-tabs"), function (box, gi) {
+    var panes = [].filter.call(box.children, function (c) { return c.classList.contains("pk-tab"); });
+    if (panes.length < 2 || box.querySelector(":scope > .pk-tablist")) return;
+    var list = el("div", "pk-tablist"), g = { box: box, panes: panes, tabs: [], current: 0, every: false };
+    list.setAttribute("role", "tablist");
+    var name = box.getAttribute("aria-label") || box.getAttribute("data-pk-title");
+    if (name) list.setAttribute("aria-label", name);
+    panes.forEach(function (p, k) {
+      var h = p.querySelector("h2, h3, h4, h5"), own = p.getAttribute("data-pk-title");
+      var b = el("button");
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.id = "pk-tabbtn-" + (gi + 1) + "-" + (k + 1);
+      b.textContent = own || (h ? words(h) : "") || "Tab " + (k + 1);
+      /* The tab names the pane on screen, so a heading it was named from is
+       * kept for screen readers, every-pane view and paper only. */
+      if (!own && h && h === p.firstElementChild) h.classList.add("pk-tabhead");
+      idFor(p, "tab-" + (gi + 1) + "-" + (k + 1));
+      b.setAttribute("aria-controls", p.id);
+      p.setAttribute("role", "tabpanel");
+      p.setAttribute("aria-labelledby", b.id);
+      if (!p.hasAttribute("tabindex")) p.tabIndex = 0;
+      b.addEventListener("click", function () { selectTab(g, k, { hash: true }); });
+      p.addEventListener("beforematch", function () { if (!g.every && g.current !== k) selectTab(g, k); });
+      list.appendChild(b);
+      g.tabs.push(b);
+    });
+    list.addEventListener("keydown", function (e) {
+      var n = g.tabs.length, i = g.tabs.indexOf(e.target), j = -1;
+      if (i < 0) return;
+      if (e.key === "ArrowRight") j = (i + 1) % n;
+      else if (e.key === "ArrowLeft") j = (i + n - 1) % n;
+      else if (e.key === "Home") j = 0;
+      else if (e.key === "End") j = n - 1;
+      if (j < 0) return;
+      e.preventDefault();
+      selectTab(g, j, { focus: true, hash: true });
+    });
+    box.insertBefore(list, panes[0]);
+    box.classList.add("pk-tabbed");
+    tabGroups.push(g);
+    selectTab(g, 0);
+  });
+}
+
 /* ── wiring ─────────────────────────────────────────────────────────────── */
 function init() {
   root.classList.add("pk", "pk-js");
@@ -1751,6 +1846,7 @@ function init() {
     initFloat(t);
   });
   if (OWN) initParts();
+  initTabs();
   buildPanel();
   initMotion();
   initRefs();
@@ -1775,6 +1871,7 @@ function init() {
     if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === "f" || e.key === "F")) {
       openAllTables();
       if (parts.length && !UNTIL_FOUND && !allMode) showAll();
+      if (!UNTIL_FOUND) tabGroups.forEach(function (g) { if (!g.every) everyTab(g); });
     }
     if (e.key === "Escape" && root.classList.contains("pk-drawer")) drawer(false);
   });
@@ -1784,7 +1881,7 @@ function init() {
     /* A page the kit was added to keeps its own links, except inside a
      * viewer's frame, where the browser cannot follow a "#" link in a
      * sandboxed document and the kit has to (measured in both engines). */
-    if (!OWN && !FRAMED) { openTableHolding(t); return; }
+    if (!OWN && !FRAMED) { openTabHolding(t); openTableHolding(t); return; }
     e.preventDefault();
     go(t, id);
   }
@@ -1808,7 +1905,8 @@ function init() {
      * but a link to a fold's title, which is on screen already, opens nothing,
      * so the fold it names is opened here (measured in both engines). */
     else if (t.tagName === "SUMMARY" && t.parentNode && !t.parentNode.open) { reveal(t); }
-    else if (t.closest && t.closest("table.pk-collapsed")) { openTableHolding(t); try { t.scrollIntoView(); } catch (e) {} }
+    else if (t.closest && t.closest("table.pk-collapsed")) { openTabHolding(t); openTableHolding(t); try { t.scrollIntoView(); } catch (e) {} }
+    else if (tabOf(t) && tabOf(t).hasAttribute("hidden")) { openTabHolding(t); try { t.scrollIntoView(); } catch (e) {} }
   }
   addEventListener("hashchange", arrive);
   if (location.hash) arrive();

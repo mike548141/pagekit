@@ -21,7 +21,8 @@ engine of Safari), two ways each:
 and at a laptop width and a phone width. It records every script error, then
 exercises the features the page has (parts, long tables, pinned headings,
 links into hidden places, charts that draw when seen, copying a table or a
-diagram out and a link to a section (by real mouse clicks), a link arriving
+diagram out and a link to a section (by real mouse clicks), tabs within a
+section (by real clicks and keys), a link arriving
 into a closed section, the theme switch, reduced motion, print) and checks each did what
 it should. Screenshots go to ``--shots``.
 
@@ -208,7 +209,7 @@ async () => {
 }
 """
 
-PRINT_CHECK = r"""() => [...document.querySelectorAll('.pk-part')].map(p => p.getBoundingClientRect().height > 0)
+PRINT_CHECK = r"""() => [...document.querySelectorAll('.pk-part, .pk-tab')].map(p => p.getBoundingClientRect().height > 0)
   .concat([...document.querySelectorAll('tr.pk-more')].slice(0, 50).map(r => r.getClientRects().length > 0))
   .concat([...document.querySelectorAll('.pk-mo .pk-bar, .pk-mo .pk-tbar, .pk-mo .cbarfill')].slice(0, 50)
     .map(b => getComputedStyle(b).transform === 'none'))"""
@@ -523,6 +524,90 @@ def link_checks(pg, frame, mode: str) -> list:
     return out
 
 
+# Tabs within a section: the first group, brought on screen (its part shown
+# first), then driven by real clicks and keys from Python.
+TAB_PICK = r"""async () => { const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  const g = [...d.querySelectorAll('.pk-tabs')].find(x => x.querySelector(':scope > .pk-tablist'));
+  if (!g) return null;
+  const part = g.closest('.pk-part');
+  if (part && part.hidden) { const a = [...d.querySelectorAll('.pk-panel .pk-a1')].find(l => (l.getAttribute('href') || l.getAttribute('data-pk-href')) === '#' + part.id); if (a) { a.click(); await wait(300); } }
+  d.querySelectorAll('[data-probe-tab]').forEach(x => x.removeAttribute('data-probe-tab'));
+  [...g.querySelectorAll('[role=tab]')].forEach((b, i) => b.setAttribute('data-probe-tab', i));
+  g.scrollIntoView({block: 'start', behavior: 'instant'}); await wait(150);
+  return true; }"""
+TAB_STATE = r"""() => { const d = document, g = d.querySelector('[data-probe-tab]').closest('.pk-tabs');
+  const panes = [...g.children].filter(c => c.classList.contains('pk-tab'));
+  const tabs = [...g.querySelectorAll('[role=tab]')];
+  const shown = panes.map(p => !p.hidden && p.getBoundingClientRect().height > 0);
+  const head = panes[0].querySelector('.pk-tabhead');
+  return {shown, selected: tabs.map(t => t.getAttribute('aria-selected') === 'true'),
+          focus: tabs.indexOf(d.activeElement), n: panes.length,
+          head: head ? head.getBoundingClientRect().height <= 1 : null}; }"""
+# A link on screen whose target sits in a pane not shown; clicked, then landed.
+TAB_LINK = r"""() => { const d = document, hrefOf = a => a.getAttribute('href') || a.getAttribute('data-pk-href') || '';
+  d.querySelectorAll('[data-probe-link]').forEach(x => x.removeAttribute('data-probe-link'));
+  const a = [...d.querySelectorAll('a[href^="#"], a[data-pk-href]')].find(a => {
+    const t = d.getElementById(hrefOf(a).slice(1)), p = t && t.closest('.pk-tab');
+    return p && p.hidden && a.getBoundingClientRect().height > 0 && !a.closest('.pk-panel, .pk-part[hidden], .pk-tab[hidden]'); });
+  if (!a) return null;
+  a.scrollIntoView({block: 'center', behavior: 'instant'});
+  a.setAttribute('data-probe-link', '1');
+  return hrefOf(a).slice(1); }"""
+TAB_LANDED = r"""async (id) => { const t = document.getElementById(id), p = t.closest('.pk-tab'), t0 = Date.now();
+  const ok = () => !p.hidden && p.getBoundingClientRect().height > 0 && (r => r.bottom > 0 && r.top < innerHeight)(p.getBoundingClientRect());
+  while (Date.now() - t0 < 2500 && !ok()) await new Promise(r => setTimeout(r, 60));
+  const b = document.getElementById(p.getAttribute('aria-labelledby'));
+  return ok() && b.getAttribute('aria-selected') === 'true'; }"""
+# The panel's search, for words only a pane not shown holds.
+TAB_SEARCH = r"""async () => { const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  const q = d.querySelector('.pk-panel input[type=search]');
+  const p = [...d.querySelectorAll('.pk-tabbed > .pk-tab')].find(x => x.hidden && !x.closest('.pk-part[hidden]'));
+  if (!q || !p) return null;
+  const para = [...p.querySelectorAll('p, li')].find(x => /[a-z]{6,}/i.test(x.textContent));
+  if (!para) return null;
+  const word = para.textContent.match(/[a-z]{6,}/i)[0];
+  q.value = word; q.dispatchEvent(new Event('input', {bubbles: true})); await wait(400);
+  const hit = [...d.querySelectorAll('.pk-panel .pk-rlist a')].find(a => {
+    const t = d.getElementById((a.getAttribute('href') || '').slice(1)); return t && p.contains(t); });
+  if (hit) { hit.click(); await wait(500); }
+  const ok = !!hit && !p.hidden && p.getBoundingClientRect().height > 0;
+  q.value = ''; q.dispatchEvent(new Event('input', {bubbles: true})); await wait(150);
+  return [word, ok]; }"""
+
+
+def tab_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    if not frame.evaluate(TAB_PICK):
+        return out
+    s = frame.evaluate(TAB_STATE)
+    out.append(["tabs show one pane at a time", s["shown"] == [i == 0 for i in range(s["n"])] and s["selected"][0]
+                and s["head"] is not False, f"{sum(s['shown'])} of {s['n']} panes shown"])
+    frame.locator('[data-probe-tab="1"]').click()
+    pg.wait_for_timeout(200)
+    s = frame.evaluate(TAB_STATE)
+    out.append(["a tab shows its pane", s["shown"][1] and sum(s["shown"]) == 1 and s["selected"][1],
+                f"shown {s['shown']}"])
+    pg.keyboard.press("ArrowRight")
+    pg.wait_for_timeout(200)
+    s = frame.evaluate(TAB_STATE)
+    nxt = 2 % s["n"]
+    right = s["shown"][nxt] and sum(s["shown"]) == 1 and s["focus"] == nxt
+    pg.keyboard.press("Home")
+    pg.wait_for_timeout(200)
+    s = frame.evaluate(TAB_STATE)
+    out.append(["arrow keys and Home move between tabs", right and s["shown"][0] and s["focus"] == 0,
+                f"right to tab {nxt + 1}: {right}; Home to tab 1: {s['shown'][0] and s['focus'] == 0}"])
+    ident = frame.evaluate(TAB_LINK)
+    if ident:
+        frame.locator('[data-probe-link="1"]').click()
+        out.append(["a link into a pane not shown opens its tab and lands", frame.evaluate(TAB_LANDED, ident),
+                    "#" + ident])
+    found = frame.evaluate(TAB_SEARCH)
+    if found:
+        out.append(["search reaches a pane not shown and opens it", found[1], repr(found[0])])
+    return out
+
+
 def engines(p, chromium: str | None, webkit: str | None):
     c = chromium or next(iter(glob.glob(str(CACHE / "chromium_headless_shell-*/*/chrome-headless-shell"))), None)
     w = webkit or next(iter(sorted(glob.glob(str(CACHE / "webkit-*/pw_run.sh")))[::-1]), None)
@@ -573,6 +658,10 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                     except Exception as e:
                         checks.append(["filtering and sorting a table", False, str(e).splitlines()[0][:160]])
                     try:
+                        checks += tab_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["tabs within a section", False, str(e).splitlines()[0][:160]])
+                    try:
                         checks += block_checks(pg, frame, mode)
                     except Exception as e:
                         checks.append(["copying a block", False, str(e).splitlines()[0][:160]])
@@ -583,7 +672,7 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                     if mode == "direct" and width == 1440:
                         pg.emulate_media(media="print")
                         pr = frame.evaluate(PRINT_CHECK)
-                        checks.append(["print shows every part, row and chart in full", all(pr), f"{sum(pr)} of {len(pr)}"])
+                        checks.append(["print shows every part, pane, row and chart in full", all(pr), f"{sum(pr)} of {len(pr)}"])
                         pg.emulate_media(media="screen")
                         still = browser.new_context(viewport={"width": width, "height": height}, reduced_motion="reduce")
                         sp = still.new_page()
