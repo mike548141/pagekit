@@ -1552,6 +1552,66 @@ function initLinks() {
   });
 }
 
+/* ── 11. Copy a code or message block ─────────────────────────────────────
+ * A block a reader will want to paste somewhere else carries a labelled copy
+ * button above its top right corner, always visible: every <pre> code or text
+ * box ("Copy code"), every .pk-message block such as a draft message ("Copy
+ * message"), and any element naming its own label with data-pk-copy-label.
+ * The copy goes by the copy command, which works inside SharePoint's,
+ * OneDrive's and Teams' viewers where the clipboard API is refused: plain text
+ * for code, plain text and formatted HTML for a message, so it pastes into an
+ * email keeping its paragraphs. Where even that is refused, the block's text
+ * is selected for the reader's own Ctrl+C. Off for a block, or everything
+ * inside an element, with data-pk-copy="off". */
+var BLOCKCOPY = 'pre, .pk-message, [data-pk-copy-label]';
+var BLOCKCOPY_OFF = COPY_OFF + ', .pane, .toolbar, [role="dialog"], figure, table, header, nav';
+function blockLabel(b) {
+  var own = b.getAttribute("data-pk-copy-label");
+  if (own) return own;
+  return b.tagName === "PRE" ? "Copy code" : "Copy message";
+}
+function blockFlavours(b) {
+  if (b.tagName === "PRE") return { "text/plain": b.textContent.replace(/\n$/, "") };
+  var k = b.cloneNode(true);
+  each(k.querySelectorAll("button, script, style, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
+  return { "text/plain": (b.innerText || b.textContent).replace(/\n{3,}/g, "\n\n").trim(), "text/html": k.innerHTML.trim() };
+}
+function selectBlock(b) {
+  try { var s = getSelection(), r = doc.createRange(); r.selectNodeContents(b); s.removeAllRanges(); s.addRange(r); } catch (e) {}
+}
+function addBlockCopy(b) {
+  var label = blockLabel(b), wrap = el("div", "pk-blockwrap"), bar = el("div", "pk-blockbar");
+  var btn = el("button", "pk-blockcopy", ICON.copy + "<span>" + esc(label) + "</span>");
+  btn.type = "button";
+  b.parentNode.insertBefore(wrap, b);
+  bar.appendChild(btn);
+  wrap.appendChild(bar);
+  wrap.appendChild(b);
+  b.setAttribute("data-pk-copy-done", "");
+  var span = btn.querySelector("span"), back = null;
+  btn.addEventListener("click", function () {
+    if (copyAs(blockFlavours(b))) {
+      span.textContent = "Copied";
+      notify("Copied to the clipboard");
+    } else {
+      selectBlock(b);
+      span.textContent = label;
+      notify("Press Ctrl+C (⌘C on a Mac) to copy the selected text");
+      return;
+    }
+    clearTimeout(back);
+    back = setTimeout(function () { span.textContent = label; }, 2000);
+  });
+}
+function initBlockCopy() {
+  each(doc.querySelectorAll(BLOCKCOPY), function (b) {
+    if (b.closest(BLOCKCOPY_OFF) || b.hasAttribute("data-pk-copy-done") || !b.parentNode) return;
+    if (b.parentElement && b.parentElement.closest(BLOCKCOPY)) return;
+    if (!b.textContent.trim()) return;
+    addBlockCopy(b);
+  });
+}
+
 /* ── wiring ─────────────────────────────────────────────────────────────── */
 function init() {
   root.classList.add("pk", "pk-js");
@@ -1566,6 +1626,7 @@ function init() {
   initRefs();
   initPane();
   initCopy();
+  initBlockCopy();
   initLinks();
   initTheme();
   watchScheme();

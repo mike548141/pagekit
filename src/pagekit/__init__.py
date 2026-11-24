@@ -412,11 +412,16 @@ def set_skip(html: str, selectors: str | None = None) -> str:
     is a CSS selector list (``table.layout, #summary``), written as
     ``<meta name="pk-skip">``. Meant for pages made another way, whose own
     markup cannot carry the opt-out. Idempotent; ``None`` or empty removes it."""
-    html = _SKIP.sub("", html)
     want = (selectors or "").strip()
-    if not want:
+    tag = f'<meta name="pk-skip" content="{esc(want)}">\n' if want else ""
+    # A tag already there is replaced where it stands, so this and `set_marks`
+    # (which also writes just before the kit's styles) can run in any order,
+    # any number of times, and leave the page as it was.
+    old = _SKIP.search(html)
+    if old:
+        return html[:old.start()] + tag + _SKIP.sub("", html[old.end():])
+    if not tag:
         return html
-    tag = f'<meta name="pk-skip" content="{esc(want)}">\n'
     # Before the kit's styles, which `apply` always puts last in the head,
     # so applying the kit again leaves the page exactly as it was.
     at = (re.search(r'<style id="pagekit-css">', html) or re.search(r"</head\s*>", html, flags=re.I)

@@ -307,6 +307,50 @@ def copy_checks(pg, frame, mode: str) -> list:
     return out
 
 
+# A block's labelled copy button (code or message). The block may sit in a part
+# not on screen: an in-page link to it, followed by the kit as a reader's would
+# be, shows that part first. The button must be visible before the pointer is
+# anywhere near it.
+BLOCK_PICK = r"""async (kind) => { const d = document;
+  if (!window.__pkcopy) { window.__pkcopy = [];
+    addEventListener('copy', e => window.__pkcopy.push({html: e.clipboardData.getData('text/html'), text: e.clipboardData.getData('text/plain')})); }
+  d.querySelectorAll('[data-probe]').forEach(x => x.removeAttribute('data-probe'));
+  const want = kind === 'code' ? 'pre' : '.pk-message';
+  const wrap = [...d.querySelectorAll('.pk-blockwrap')].find(w => w.querySelector(':scope > ' + want));
+  if (!wrap) return null;
+  if (wrap.closest('.pk-part[hidden]')) {
+    wrap.id = wrap.id || 'pk-probe-block';
+    const a = d.createElement('a'); a.setAttribute('data-pk-href', '#' + wrap.id); d.body.appendChild(a); a.click(); a.remove();
+    const t0 = Date.now(); while (Date.now() - t0 < 2500 && wrap.closest('.pk-part[hidden]')) await new Promise(r => setTimeout(r, 60));
+  }
+  wrap.scrollIntoView({block: 'center', behavior: 'instant'});
+  await new Promise(r => setTimeout(r, 200));
+  const b = wrap.querySelector('.pk-blockcopy'), block = wrap.querySelector(':scope > ' + want), cs = getComputedStyle(b);
+  const shown = b.getBoundingClientRect().height > 0 && cs.opacity === '1' && cs.visibility === 'visible';
+  const text = kind === 'code' ? block.textContent.replace(/\n$/, '') : (block.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+  b.setAttribute('data-probe', '1');
+  return {shown, label: b.textContent.trim(), text, n: window.__pkcopy.length}; }"""
+
+
+def block_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    for kind, label in (("code", "Copy code"), ("message", "Copy message")):
+        got = frame.evaluate(BLOCK_PICK, kind)
+        if not got:
+            continue
+        frame.locator('[data-probe="1"]').click()
+        pg.wait_for_timeout(250)
+        c = frame.evaluate(COPY_LAST)
+        after = frame.locator('[data-probe="1"]').inner_text()
+        fresh = bool(c) and frame.evaluate("() => (window.__pkcopy || []).length") > got["n"]
+        same = fresh and c["text"].strip() == got["text"].strip() and (kind == "code" or "<p>" in c["html"])
+        out.append([f"a {kind} block's labelled button copies it", got["shown"] and got["label"] == label and same
+                    and after.strip() == "Copied",
+                    f"shown without pointing: {got['shown']}; label {got['label']!r}; "
+                    f"copied {len(c['text']) if fresh else 0} of {len(got['text'])} characters; then {after.strip()!r}"])
+    return out
+
+
 LINK_PICK = r"""() => { const d = document, shut = el => !!el.closest('details:not([open]), .pk-part[hidden]');
   d.querySelectorAll('[data-probe]').forEach(x => x.removeAttribute('data-probe'));
   const b = [...d.querySelectorAll('.pk-linkbtn')].find(x => !shut(x) && x.getBoundingClientRect().height > 0);
@@ -393,6 +437,10 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                         checks += link_checks(pg, frame, mode)
                     except Exception as e:
                         checks.append(["section links", False, str(e).splitlines()[0][:160]])
+                    try:
+                        checks += block_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["copying a block", False, str(e).splitlines()[0][:160]])
                     try:
                         checks += copy_checks(pg, frame, mode)
                     except Exception as e:  # a missing control or a refused download is a failure, not a crash

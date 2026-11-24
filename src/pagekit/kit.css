@@ -244,3 +244,15 @@ button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; bor
   .pk-part, .pk-part[hidden] { display: block !important; content-visibility: visible !important; }
   .pk-part + .pk-part { break-before: page; margin-top: 0; }
 }
+
+/* 11. copy a code or message block: a labelled button above its top right */
+.pk-blockwrap { margin: 1rem 0; }
+.pk-blockwrap > pre, .pk-blockwrap > .pk-message, .pk-blockwrap > [data-pk-copy-label] { margin-top: 0; margin-bottom: 0; }
+.pk-blockbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.pk-blockcopy { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font: inherit; font-size: .82rem;
+  line-height: 1.3; color: var(--pk-ink, inherit); background: var(--pk-bg, transparent); border: 1px solid var(--pk-line);
+  border-radius: 6px; cursor: pointer; }
+.pk-blockcopy svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.pk-blockcopy:hover { border-color: var(--pk-solid); }
+.pk-blockcopy:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+@media print { .pk-blockbar { display: none; } }

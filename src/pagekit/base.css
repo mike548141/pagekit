@@ -77,6 +77,10 @@ body {
 .pk-num, .pk-prose td.num, .pk-prose th.num{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* callouts: a point the reader must not miss; .attn for a risk or a decision */
+/* a message to copy and send on (a draft email, a notice): a page-coloured box */
+.pk-message { margin: 1.2rem 0; padding: .9rem 1.1rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.pk-message > :first-child { margin-top: 0; }
+.pk-message > :last-child { margin-bottom: 0; }
 .pk-callout { margin: 1.2rem 0; padding: .8rem 1rem; background: var(--surface); border-left: 4px solid var(--brand); border-radius: 0 8px 8px 0; }
 .pk-callout.attn { border-left-color: var(--attn); }
 .pk-callout > :last-child { margin-bottom: 0; }

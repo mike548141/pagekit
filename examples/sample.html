@@ -86,6 +86,10 @@ body {
 .pk-num, .pk-prose td.num, .pk-prose th.num{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 
+
+.pk-message { margin: 1.2rem 0; padding: .9rem 1.1rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.pk-message > :first-child { margin-top: 0; }
+.pk-message > :last-child { margin-bottom: 0; }
 .pk-callout { margin: 1.2rem 0; padding: .8rem 1rem; background: var(--surface); border-left: 4px solid var(--brand); border-radius: 0 8px 8px 0; }
 .pk-callout.attn { border-left-color: var(--attn); }
 .pk-callout > :last-child { margin-bottom: 0; }
@@ -416,6 +420,18 @@ button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; bor
   .pk-part, .pk-part[hidden] { display: block !important; content-visibility: visible !important; }
   .pk-part + .pk-part { break-before: page; margin-top: 0; }
 }
+
+
+.pk-blockwrap { margin: 1rem 0; }
+.pk-blockwrap > pre, .pk-blockwrap > .pk-message, .pk-blockwrap > [data-pk-copy-label] { margin-top: 0; margin-bottom: 0; }
+.pk-blockbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.pk-blockcopy { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font: inherit; font-size: .82rem;
+  line-height: 1.3; color: var(--pk-ink, inherit); background: var(--pk-bg, transparent); border: 1px solid var(--pk-line);
+  border-radius: 6px; cursor: pointer; }
+.pk-blockcopy svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.pk-blockcopy:hover { border-color: var(--pk-solid); }
+.pk-blockcopy:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+@media print { .pk-blockbar { display: none; } }
 </style>
 </head>
 <body>
@@ -473,6 +489,16 @@ areas around a central glasshouse, with the shed and compost bays by the gate</t
 <div class="pk-callout attn"><p class="pk-callout-title">Decision needed</p>
 <p>The north terrace lost most of its beans to wind in December. A windbreak of flax along its
 edge would take one working bee, and it is what <a href="#goal-2">goal 2</a> asks for.</p></div>
+<h3 id="working-bee">Calling the working bee</h3>
+<p>The note that went to every group, ready to copy into an email or a text:</p>
+<div class="pk-message"><p>Kia ora koutou,</p>
+<p>Working bee this Saturday from 9 am to build the windbreak on the north terrace. Bring gloves
+and a spade; morning tea is on us.</p>
+<p>Ngā mihi, the garden committee</p></div>
+<p>The watering timer on the glasshouse runs this schedule; copy it into the timer's app:</p>
+<pre><code>zone glasshouse  start 06:00  minutes 12  days mon,wed,fri
+zone raised-beds start 06:15  minutes 8   days daily
+zone orchard     start 19:30  minutes 20  days sat</code></pre>
 <h3 id="garden-terms">Words used here</h3>
 <dl class="pk-facts"><dt>Working bee</dt><dd>A day when everyone comes to do one big job together.</dd>
 <dt>Raised bed</dt><dd>A bed built up above the ground, easier on knees and quicker to warm.</dd>
@@ -1798,6 +1824,54 @@ function initLinks() {
     h.appendChild(b);
   });
 }
+var BLOCKCOPY = 'pre, .pk-message, [data-pk-copy-label]';
+var BLOCKCOPY_OFF = COPY_OFF + ', .pane, .toolbar, [role="dialog"], figure, table, header, nav';
+function blockLabel(b) {
+  var own = b.getAttribute("data-pk-copy-label");
+  if (own) return own;
+  return b.tagName === "PRE" ? "Copy code" : "Copy message";
+}
+function blockFlavours(b) {
+  if (b.tagName === "PRE") return { "text/plain": b.textContent.replace(/\n$/, "") };
+  var k = b.cloneNode(true);
+  each(k.querySelectorAll("button, script, style, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
+  return { "text/plain": (b.innerText || b.textContent).replace(/\n{3,}/g, "\n\n").trim(), "text/html": k.innerHTML.trim() };
+}
+function selectBlock(b) {
+  try { var s = getSelection(), r = doc.createRange(); r.selectNodeContents(b); s.removeAllRanges(); s.addRange(r); } catch (e) {}
+}
+function addBlockCopy(b) {
+  var label = blockLabel(b), wrap = el("div", "pk-blockwrap"), bar = el("div", "pk-blockbar");
+  var btn = el("button", "pk-blockcopy", ICON.copy + "<span>" + esc(label) + "</span>");
+  btn.type = "button";
+  b.parentNode.insertBefore(wrap, b);
+  bar.appendChild(btn);
+  wrap.appendChild(bar);
+  wrap.appendChild(b);
+  b.setAttribute("data-pk-copy-done", "");
+  var span = btn.querySelector("span"), back = null;
+  btn.addEventListener("click", function () {
+    if (copyAs(blockFlavours(b))) {
+      span.textContent = "Copied";
+      notify("Copied to the clipboard");
+    } else {
+      selectBlock(b);
+      span.textContent = label;
+      notify("Press Ctrl+C (⌘C on a Mac) to copy the selected text");
+      return;
+    }
+    clearTimeout(back);
+    back = setTimeout(function () { span.textContent = label; }, 2000);
+  });
+}
+function initBlockCopy() {
+  each(doc.querySelectorAll(BLOCKCOPY), function (b) {
+    if (b.closest(BLOCKCOPY_OFF) || b.hasAttribute("data-pk-copy-done") || !b.parentNode) return;
+    if (b.parentElement && b.parentElement.closest(BLOCKCOPY)) return;
+    if (!b.textContent.trim()) return;
+    addBlockCopy(b);
+  });
+}
 function init() {
   root.classList.add("pk", "pk-js");
   each(doc.querySelectorAll("table"), function (t) {
@@ -1811,6 +1885,7 @@ function init() {
   initRefs();
   initPane();
   initCopy();
+  initBlockCopy();
   initLinks();
   initTheme();
   watchScheme();

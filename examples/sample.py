@@ -175,6 +175,16 @@ of the season with the rain, the heat and who turned up.</p>
 <div class="pk-callout attn"><p class="pk-callout-title">Decision needed</p>
 <p>The north terrace lost most of its beans to wind in December. A windbreak of flax along its
 edge would take one working bee, and it is what <a href="#goal-2">goal 2</a> asks for.</p></div>
+<h3 id="working-bee">Calling the working bee</h3>
+<p>The note that went to every group, ready to copy into an email or a text:</p>
+<div class="pk-message"><p>Kia ora koutou,</p>
+<p>Working bee this Saturday from 9 am to build the windbreak on the north terrace. Bring gloves
+and a spade; morning tea is on us.</p>
+<p>Ngā mihi, the garden committee</p></div>
+<p>The watering timer on the glasshouse runs this schedule; copy it into the timer's app:</p>
+<pre><code>zone glasshouse  start 06:00  minutes 12  days mon,wed,fri
+zone raised-beds start 06:15  minutes 8   days daily
+zone orchard     start 19:30  minutes 20  days sat</code></pre>
 <h3 id="garden-terms">Words used here</h3>
 <dl class="pk-facts"><dt>Working bee</dt><dd>A day when everyone comes to do one big job together.</dd>
 <dt>Raised bed</dt><dd>A bed built up above the ground, easier on knees and quicker to warm.</dd>

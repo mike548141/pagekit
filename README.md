@@ -136,6 +136,15 @@ or on paper, the page shows everything.
   own *Copy image* or *Save image as*, and the Save items are not offered;
   copying a table or SVG works there. Off for one table or figure with
   `data-pk-copy="off"`.
+- **Copy a code or message block.** Every `<pre>` box carries a labelled
+  *Copy code* button above its top right corner, always visible; a
+  `<div class="pk-message">` (a draft email, a notice, anything a reader will
+  send on) carries *Copy message*; any element can name its own label with
+  `data-pk-copy-label="Copy command"`. Code copies as plain text; a message
+  copies as plain text and as formatted HTML, so it pastes into an email with
+  its paragraphs. It uses the copy command, which works inside SharePoint,
+  OneDrive and Teams viewers; where even that is refused, the block's text is
+  selected for the reader's own Ctrl+C. Off with `data-pk-copy="off"`.
 - **Macrons**: UTF-8 declared first, text stored composed (NFC), `lang`
   attributes on the page and on the te reo name.
 - **Print**: everything open, every part, black on white, link addresses shown.

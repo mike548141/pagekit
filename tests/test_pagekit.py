@@ -222,6 +222,12 @@ def test_a_page_names_the_tables_the_kit_leaves_alone():
     assert kit.apply(out, "en-NZ") == out, "the kit re-applied leaves it alone"
     assert kit.set_skip(out, "") == base, "empty removes it"
     assert kit.fingerprint(out) == kit.fingerprint(base)
+    # Marks and the skip setting both sit just before the kit's styles: either
+    # order, re-applied, leaves the page as it was.
+    # The skip setting is replaced where it stands, so re-applying it after
+    # marks were added (both sit just before the kit's styles) moves nothing.
+    marked = kit.set_marks(out, "IN-CONFIDENCE", "DRAFT")
+    assert kit.set_skip(kit.apply(marked, "en-NZ"), 'table.layout, #summary, a[title="x"]') == marked
 
 
 def test_every_section_gets_an_id_from_its_words_and_keeps_its_own():
