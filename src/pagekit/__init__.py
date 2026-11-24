@@ -838,6 +838,112 @@ def _card_source_links(html: str, entries: dict[str, dict], name: str) -> str:
     return _write_refdata("".join(out), used) if used else "".join(out)
 
 
+# ── defined terms: a word the reader may not know explains itself ───────────
+
+_MESSAGE = re.compile(r'\bclass="[^"]*\bpk-message\b')
+_NO_TERM = _NO_LINK | {"h1", "h2", "h3", "h4", "h5", "h6", "th", "caption", "label", "dt", "dfn", "abbr"}
+
+
+def _term_rx(term: str) -> str:
+    """A term as a pattern: spaces match any run of spaces, and a word that
+    is not an acronym may take a plural ending."""
+    body = r"\s+".join(re.escape(w) for w in term.split())
+    if not any(c.isupper() for c in term[1:]) and term[-1:].isalpha():
+        body += r"(?:s|es)?"
+    return body
+
+
+def link_terms(html: str, glossary: dict, here: str = "") -> str:
+    """Make the first mention of each defined term in every section a link
+    that explains itself.
+
+    ``glossary`` is ``{"name", "url"?, "entries": {term: entry}}``; an entry
+    is ``{"text", "anchor"?, "doc"?, "also"?: [other spellings], "source"?,
+    "source_url"?}``. A term written in capitals after its first letter (an
+    acronym, a product name) matches as written; any other matches in any
+    case, plural or not. The first mention in each section (from one h2, or
+    one part, to the next) becomes a link with the same card and pane as an
+    identifier (`link_refs`): the term, what it means, and where the meaning
+    comes from. Headings, table headings, captions, links, code, a message
+    block meant to be copied out (``pk-message``) and regions marked
+    ``data-pk-ref="off"`` (a glossary's own list) are left alone.
+    Idempotent: a page already carrying a term's link is left as it is."""
+    entries = glossary.get("entries") or {}
+    if not entries or 'class="pk-ref pk-term"' in html:
+        return html
+    if _unsafe_url(str(glossary.get("url") or "")):
+        raise ValueError(f"glossary {glossary.get('name')!r}: a url must be relative or http(s)")
+    spell: dict[str, str] = {}
+    alts = []
+    for term, e in entries.items():
+        for s in [term, *(e.get("also") or [])]:
+            alts.append((s, term))
+    alts.sort(key=lambda x: len(x[0]), reverse=True)
+    groups = []
+    for n, (s, term) in enumerate(alts):
+        name = f"t{n}"
+        spell[name] = term
+        flags = "" if any(c.isupper() for c in s[1:]) else "(?i:"
+        groups.append(f"(?P<{name}>{flags}{_term_rx(s)}{')' if flags else ''})")
+    rx = re.compile(r"(?<![\w\-])(?:" + "|".join(groups) + r")(?![\w\-])")
+    used: dict[str, dict] = {}
+    seen: set[str] = set()
+    out: list[str] = []
+    skip: list[str] = []
+    off_tag, off_depth = "", 0
+    for piece in _PIECES.split(html):
+        if piece.startswith(("<script", "<style", "<!--")):
+            out.append(piece)
+            continue
+        if piece.startswith("<"):
+            m = re.match(r"<(/?)([a-zA-Z][\w-]*)", piece)
+            if m:
+                tag = m.group(2).lower()
+                if not m.group(1) and (tag == "h2" or (tag == "section" and "pk-part" in piece)):
+                    seen.clear()
+                if not piece.endswith("/>"):
+                    if off_tag and tag == off_tag:
+                        off_depth += -1 if m.group(1) else 1
+                        if not off_depth:
+                            off_tag = ""
+                    elif not off_tag and not m.group(1) and ('data-pk-ref="off"' in piece or _MESSAGE.search(piece)):
+                        off_tag, off_depth = tag, 1
+                if tag in _NO_TERM and not piece.endswith("/>"):
+                    if m.group(1):
+                        if tag in skip:
+                            while skip and skip.pop() != tag:
+                                pass
+                    else:
+                        skip.append(tag)
+            out.append(piece)
+            continue
+        if not piece.strip() or off_tag or skip:
+            out.append(piece)
+            continue
+
+        def one(m: re.Match) -> str:
+            term = spell[m.lastgroup or ""]
+            if term in seen:
+                return m.group(0)
+            e = entries[term]
+            key = "term:" + term
+            if e.get("doc") or e.get("anchor"):
+                href, outside = _ref_href(glossary, e, here)
+            else:
+                href, outside = e.get("source_url") or glossary.get("url") or "", True
+            if not href or _unsafe_url(href):
+                return m.group(0)
+            seen.add(term)
+            used[key] = {k: v for k, v in (("n", glossary.get("name", "Term")), ("k", term),
+                                             ("t", e.get("text", "")), ("m", e.get("source", "")),
+                                             ("u", href), ("x", outside)) if v}
+            tip = f"{term}: {e.get('text', '')}"
+            extra = ' target="_blank" rel="noopener"' if outside else ""
+            return (f'<a class="pk-ref pk-term" href="{esc(href)}" data-pk-ref="{esc(key)}" '
+                    f'title="{esc(tip[:280])}"{extra}>{m.group(0)}</a>')
+        out.append(rx.sub(one, piece))
+    return _write_refdata("".join(out), used)
+
 # ── page: a whole document ──────────────────────────────────────────────────
 
 def slug(text: str) -> str:

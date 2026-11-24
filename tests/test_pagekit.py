@@ -364,3 +364,42 @@ def test_tabs_show_every_pane_without_the_script_and_on_paper():
     css = (ROOT / "src/pagekit/kit.css").read_text(encoding="utf-8")
     assert re.search(r"@media print\s*\{[^}]*\.pk-tablist[^}]*display:\s*none", css)
     assert re.search(r"\.pk-tab\[hidden\][^{]*\{[^}]*display:\s*block !important", css)
+
+
+GLOSSARY = {"name": "Term", "entries": {
+    "Raised bed": {"text": "A bed built up above the ground", "doc": "words.html", "anchor": "raised-bed"},
+    "Mulch": {"text": "A layer laid over soil", "doc": "words.html", "anchor": "mulch", "also": ["mulched"]},
+    "GPS": {"text": "A satellite position", "source_url": "https://www.example.org/gps", "source": "Example Atlas"},
+    "Compost": {"text": "Rotted plant matter", "source_url": "javascript:alert(1)"}}}
+
+
+def _terms(html: str) -> list[tuple[str, str]]:
+    return re.findall(r'<a class="pk-ref pk-term" href="([^"]*)" data-pk-ref="term:([^"]+)"', html)
+
+
+def test_a_defined_term_links_once_per_section_with_its_meaning():
+    page = ("<html><body><h2>Raised bed</h2><p>Two raised beds, then a raised bed and some mulch.</p>"
+            "<p>Mulched again.</p><h2>Later</h2><p>One more raised   bed.</p></body></html>")
+    out = kit.link_terms(page, GLOSSARY, "pages/a.html")
+    assert _terms(out) == [("../words.html#raised-bed", "Raised bed"), ("../words.html#mulch", "Mulch"),
+                           ("../words.html#raised-bed", "Raised bed")]
+    assert ">raised beds</a>" in out and "<h2>Raised bed</h2>" in out, "the reader's own spelling, headings left alone"
+    data = json.loads(re.search(r'id="pk-refdata">(.*?)</script>', out).group(1))
+    assert data["term:Mulch"]["k"] == "Mulch" and data["term:Mulch"]["t"] == "A layer laid over soil"
+    assert kit.link_terms(out, GLOSSARY, "pages/a.html") == out
+    assert kit.fingerprint(out) == kit.fingerprint(page), "linking a term changes no word"
+
+
+def test_an_acronym_matches_only_as_written_and_a_bad_address_links_nowhere():
+    page = "<html><body><p>gps is not GPS. Compost <code>GPS</code> <a href='#x'>GPS</a></p></body></html>"
+    out = kit.link_terms(page, GLOSSARY, "a.html")
+    assert _terms(out) == [("https://www.example.org/gps", "GPS")]
+    assert "gps is not" in out and "Compost <code>" in out
+
+
+def test_terms_leave_a_glossary_list_a_message_and_headings_alone():
+    page = ('<html><body><h3>Mulch</h3><dl data-pk-ref="off"><dt>Mulch</dt><dd>A raised bed of mulch</dd></dl>'
+            '<div class="pk-message"><p>Bring mulch.</p></div><table><thead><tr><th>Mulch</th></tr></thead>'
+            "<tbody><tr><td>mulch</td></tr></tbody></table></body></html>")
+    out = kit.link_terms(page, GLOSSARY, "words.html")
+    assert _terms(out) == [("#mulch", "Mulch")], "only the table cell, linked in-page on the glossary's own page"

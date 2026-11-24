@@ -3,7 +3,7 @@
 
 The subject is an invented community garden's season report. Every name,
 place and figure is invented. The page is the kit's own test bed: three
-parts, long and wide tables, folds, tabs, a drawing and a chart, callouts, chips,
+parts, long and wide tables, folds, tabs, defined terms, a drawing and a chart, callouts, chips,
 links across parts, an outside link, and te reo Māori with macrons (one word
 deliberately written decomposed, to prove the build composes it).
 
@@ -164,6 +164,19 @@ def check_table() -> str:
             "</tbody></table></div>")
 
 
+#: The garden's own words, defined in part 2's list; one more points to an outside source.
+TERMS = {
+    "Working bee": {"text": "A day when everyone comes to do one big job together.",
+                    "doc": "sample.html", "anchor": "term-working-bee"},
+    "Raised bed": {"text": "A bed built up above the ground, easier on knees and quicker to warm.",
+                   "doc": "sample.html", "anchor": "term-raised-bed"},
+    "Companion planting": {"text": "Growing plants side by side because each helps the other.",
+                           "doc": "sample.html", "anchor": "term-companion-planting"},
+    "Harakeke": {"text": "New Zealand flax, grown for shelter and for weaving.",
+                 "source": "An invented plant list", "source_url": "https://www.example.org/plants/harakeke"},
+}
+
+
 def part_season() -> str:
     return f"""
 <p id="season">A season is mostly weather and people. This part shows the site, then every working day
@@ -202,9 +215,10 @@ and a spade; morning tea is on us.</p>
 zone raised-beds start 06:15  minutes 8   days daily
 zone orchard     start 19:30  minutes 20  days sat</code></pre>
 <h3 id="garden-terms">Words used here</h3>
-<dl class="pk-facts"><dt>Working bee</dt><dd>A day when everyone comes to do one big job together.</dd>
-<dt>Raised bed</dt><dd>A bed built up above the ground, easier on knees and quicker to warm.</dd>
-<dt>Companion planting</dt><dd>Growing plants side by side because each helps the other.</dd></dl>
+<p>Each of these words explains itself wherever the page first uses it in a section: rest the pointer on
+it, or tab to it.</p>
+<dl class="pk-facts" data-pk-ref="off">{"".join(f'<dt id="{t["anchor"]}">{w}</dt><dd>{t["text"]}</dd>'
+                                         for w, t in TERMS.items() if "anchor" in t)}</dl>
 """
 
 
@@ -245,7 +259,7 @@ Makaurau, whānau, tūāpapa. Capitals too: Ā Ē Ī Ō Ū.</p>
 
 def build() -> str:
     logo = "data:image/svg+xml;base64," + base64.b64encode(LOGO_SVG.encode()).decode()
-    return pagekit.link_sources(pagekit.page(
+    return pagekit.link_terms(pagekit.link_sources(pagekit.page(
         "Our garden's season: what grew, and what we will change",
         brand=BRAND, logo=logo,
         eyebrow="PageKit sample page",
@@ -262,7 +276,8 @@ def build() -> str:
              "summary": "Five goals and where we stand on each", "html": part_goals()},
         ],
         footer="Example Trust · Te Rōpū Tauira · invented content for showing the template",
-        marking="UNCLASSIFIED", watermark="SAMPLE"), "sample.html")
+        marking="UNCLASSIFIED", watermark="SAMPLE"), "sample.html"),
+        {"name": "Term", "entries": TERMS}, "sample.html")
 
 
 def main() -> int:

@@ -150,6 +150,9 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
 
 /* ── identifiers: a card on hover, the whole entry in a pane ─────────────── */
 a.pk-ref[data-pk-ref] { text-decoration-style: dotted; text-underline-offset: 3px; cursor: help; }
+/* a defined term reads as part of the sentence: the text's own colour, a dotted line under it */
+a.pk-term[data-pk-ref], .pk-prose a.pk-term[data-pk-ref] { color: inherit; text-decoration: underline dotted; text-decoration-color: var(--pk-muted); text-underline-offset: 3px; }
+a.pk-term[data-pk-ref]:hover { text-decoration-color: var(--pk-solid); }
 .pk-tip { display: none; position: fixed; z-index: 50; max-width: 380px; box-sizing: border-box; padding: 10px 12px;
   background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 8px;
   box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; line-height: 1.4; pointer-events: none; }

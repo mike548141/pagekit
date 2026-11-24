@@ -35,3 +35,6 @@
 - Tabs within a section: `<div class="pk-tabs">` with `<section class="pk-tab">`
   panes shows one at a time under a row of tabs, by mouse or keyboard; links,
   search, find-in-page and print reach every pane.
+- Defined terms: `link_terms` links the first mention of each glossary term in
+  every section to a card with its meaning, and a click goes to where it is
+  defined or opens it in the pane with its source.

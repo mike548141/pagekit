@@ -103,6 +103,19 @@ or on paper, the page shows everything.
   rests on it or it takes keyboard focus, shows a card naming the source and
   its details (who, and when it was read). The list's own rows are left
   unlinked (`data-pk-ref="off"`, which keeps any region out of `link_refs`).
+- **Defined terms.** `link_terms(html, glossary, here)` links the first
+  mention of each defined term in every section (from one h2, or one part, to
+  the next) to a card holding what it means. A glossary is `{"name", "url"?,
+  "entries": {term: {"text", "doc"?, "anchor"?, "also"?: [other spellings],
+  "source"?, "source_url"?}}}`: with `doc` and `anchor` a click goes to where
+  the term is defined (on this page, or another page from the same root,
+  as identifiers do); with `source_url` (relative or http(s)) it opens the
+  meaning in the pane, with a link to its source. A term written in capitals
+  after its first letter (an acronym, a product name) matches only as written;
+  any other matches in any case, singular or plural. Headings, table headings,
+  captions, links, code, a `pk-message` block and any region marked
+  `data-pk-ref="off"` (the glossary's own list) are left alone. Linking a term
+  changes no word, so it does not move the published date.
 - **Long tables** taller than the screen open at three rows, with "Show all N
   rows". Find, print and links into a hidden row open the table. Set a
   table's preview with `data-pk-preview="5"` or `"all"`; leave a table alone

@@ -22,7 +22,7 @@ and at a laptop width and a phone width. It records every script error, then
 exercises the features the page has (parts, long tables, pinned headings,
 links into hidden places, charts that draw when seen, copying a table or a
 diagram out and a link to a section (by real mouse clicks), tabs within a
-section (by real clicks and keys), a link arriving
+section (by real clicks and keys), defined terms, a link arriving
 into a closed section, the theme switch, reduced motion, print) and checks each did what
 it should. Screenshots go to ``--shots``.
 
@@ -188,12 +188,13 @@ async () => {
     r.scrollIntoView({block: 'center', behavior: 'instant'}); await wait(400);
     r.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
     await until(() => { const t = d.querySelector('.pk-tip'); return t && getComputedStyle(t).display !== 'none'; });
-    const tip = d.querySelector('.pk-tip'), shown = tip && getComputedStyle(tip).display !== 'none' && tip.textContent.includes(r.dataset.pkRef);
+    const key = r.dataset.pkRef.replace(/^term:/, '');
+    const tip = d.querySelector('.pk-tip'), shown = tip && getComputedStyle(tip).display !== 'none' && tip.textContent.includes(key);
     r.dispatchEvent(new MouseEvent('mouseout', {bubbles: true}));
     add('an identifier shows its card on hover', shown, r.dataset.pkRef);
     if (!(r.getAttribute('href') || r.getAttribute('data-pk-href') || '').startsWith('#')) {
       r.click(); await until(() => d.documentElement.classList.contains('pk-paneopen'));
-      const pane = d.querySelector('.pk-pane'), open = d.documentElement.classList.contains('pk-paneopen') && pane && pane.textContent.includes(r.dataset.pkRef);
+      const pane = d.querySelector('.pk-pane'), open = d.documentElement.classList.contains('pk-paneopen') && pane && pane.textContent.includes(key);
       d.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); await wait(300);
       add('a click opens its full entry in the pane, Escape closes it', open && !d.documentElement.classList.contains('pk-paneopen'), r.dataset.pkRef);
     }
@@ -418,7 +419,7 @@ def tools_checks(pg, frame, mode: str) -> list:
 SOURCE_PICK = r"""async () => { const d = document;
   d.querySelectorAll('[data-probe]').forEach(x => x.removeAttribute('data-probe'));
   const hrefOf = a => a.getAttribute('data-pk-href') || a.getAttribute('href') || '';
-  const cite = [...d.querySelectorAll('a.pk-ref[data-pk-ref]')].find(a => {
+  const cite = [...d.querySelectorAll('a.pk-ref[data-pk-ref]:not(.pk-term)')].find(a => {
     const t = hrefOf(a).startsWith('#') && d.getElementById(hrefOf(a).slice(1));
     return t && t.closest('[data-pk-ref="off"]') && !a.closest('[data-pk-ref="off"]'); });
   if (!cite) return null;
@@ -608,6 +609,61 @@ def tab_checks(pg, frame, mode: str) -> list:
     return out
 
 
+# A defined term: its card names it and gives its meaning; a click on one
+# defined on this page lands on the definition, on one defined elsewhere opens
+# the pane with the meaning.
+TERM_PICK = r"""async (kind) => { const d = document;
+  d.querySelectorAll('[data-probe-term]').forEach(x => x.removeAttribute('data-probe-term'));
+  const data = JSON.parse((d.getElementById('pk-refdata') || {}).textContent || '{}');
+  const hrefOf = a => a.getAttribute('href') || a.getAttribute('data-pk-href') || '';
+  const shut = a => !!a.closest('.pk-tab[hidden], tr.pk-more, details:not([open])');
+  const a = [...d.querySelectorAll('a.pk-term[data-pk-ref]')].find(a => !shut(a) && hrefOf(a).startsWith('#') === (kind === 'here'));
+  if (!a) return null;
+  // A term in a part not shown: show that part first, as a reader would.
+  const part = a.closest('.pk-part[hidden]');
+  if (part) { const l = [...d.querySelectorAll('.pk-panel .pk-a1')].find(x => hrefOf(x) === '#' + part.id); if (l) { l.click(); await new Promise(r => setTimeout(r, 300)); } }
+  a.setAttribute('data-probe-term', kind);
+  const e = data[a.dataset.pkRef] || {};
+  return {key: e.k || '', text: e.t || '', target: hrefOf(a).slice(1)}; }"""
+TERM_TIP = r"""() => { const t = document.querySelector('.pk-tip'); return t && getComputedStyle(t).display !== 'none' ? t.textContent : ''; }"""
+TERM_LANDED = r"""async (id) => { const t = document.getElementById(id), t0 = Date.now();
+  const ok = () => t && t.getBoundingClientRect().height > 0 && (r => r.top >= 0 && r.top < innerHeight)(t.getBoundingClientRect());
+  while (Date.now() - t0 < 2500 && !ok()) await new Promise(r => setTimeout(r, 60));
+  return ok(); }"""
+TERM_PANE = r"""async () => { const t0 = Date.now(); let p;
+  while (Date.now() - t0 < 2500) { p = document.querySelector('.pk-paneopen .pk-pane'); if (p) break; await new Promise(r => setTimeout(r, 60)); }
+  const text = p ? p.textContent : ''; document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+  return text; }"""
+
+
+def term_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    for kind in ("here", "away"):
+        t = frame.evaluate(TERM_PICK, kind)
+        if not t:
+            continue
+        loc = frame.locator(f'[data-probe-term="{kind}"]')
+        loc.scroll_into_view_if_needed()
+        pg.wait_for_timeout(300)
+        loc.hover()
+        pg.wait_for_timeout(600)
+        tip = frame.evaluate(TERM_TIP)
+        out.append([f"a defined term shows its meaning on hover ({kind})", t["key"] in tip and t["text"][:30] in tip,
+                    f"{t['key']}: {'named with its meaning' if t['key'] in tip and t['text'][:30] in tip else repr(tip[:80])}"])
+        pg.mouse.move(2, 2)
+        pg.wait_for_timeout(200)
+        loc.click()
+        if kind == "here":
+            out.append(["a click on a term defined on this page lands on its definition",
+                        frame.evaluate(TERM_LANDED, t["target"]), "#" + t["target"]])
+        else:
+            text = frame.evaluate(TERM_PANE)
+            out.append(["a click on a term defined elsewhere opens its meaning in the pane",
+                        t["key"] in text and t["text"][:30] in text, t["key"]])
+        pg.wait_for_timeout(300)
+    return out
+
+
 def engines(p, chromium: str | None, webkit: str | None):
     c = chromium or next(iter(glob.glob(str(CACHE / "chromium_headless_shell-*/*/chrome-headless-shell"))), None)
     w = webkit or next(iter(sorted(glob.glob(str(CACHE / "webkit-*/pw_run.sh")))[::-1]), None)
@@ -657,6 +713,10 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                         checks += tools_checks(pg, frame, mode)
                     except Exception as e:
                         checks.append(["filtering and sorting a table", False, str(e).splitlines()[0][:160]])
+                    try:
+                        checks += term_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["defined terms", False, str(e).splitlines()[0][:160]])
                     try:
                         checks += tab_checks(pg, frame, mode)
                     except Exception as e:

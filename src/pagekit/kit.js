@@ -1101,11 +1101,11 @@ function showTip(a) {
   var r = refOf(a);
   if (!r) return;
   if (!tip) { tip = el("div", "pk-tip"); tip.setAttribute("role", "tooltip"); tip.id = "pk-tip"; doc.body.appendChild(tip); }
-  tip.innerHTML = '<div class="pk-tiphead"><b>' + esc(a.getAttribute("data-pk-ref")) + "</b>" + chip(r.l) +
+  tip.innerHTML = '<div class="pk-tiphead"><b>' + esc(r.k || a.getAttribute("data-pk-ref")) + "</b>" + chip(r.l) +
     '<span class="pk-tipsrc">' + esc(r.n || "") + "</span></div>" +
     (r.t || r.s ? '<div class="pk-tipbody">' + esc(clip(r.t || r.s, 240)) + "</div>" : "") +
     (r.m ? '<div class="pk-tipmeta">' + esc(clip(r.m, 160)) + "</div>" : "") +
-    '<div class="pk-tiphint">' + (inPage(a) ? "Click to go to it on this page" : "Click for the full description") + "</div>";
+    '<div class="pk-tiphint">' + (inPage(a) ? "Click to go to it on this page" : r.k ? "Click for the whole meaning" : "Click for the full description") + "</div>";
   tip.style.display = "block";
   var b = a.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
   var left = Math.max(8, Math.min(b.left, innerWidth - w - 8)), top = b.bottom + 8;
@@ -1127,7 +1127,7 @@ function paragraphs(t) {
 /* Identifiers inside an entry (its related requirements, say) open their own
  * entry in turn, where this page carries it. */
 function linkIds(h) {
-  var ids = Object.keys(refData);
+  var ids = Object.keys(refData).filter(function (k) { return k.indexOf("term:") !== 0; });
   if (!ids.length) return h;
   var rx = new RegExp("\\b(" + ids.map(function (i) { return i.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|") + ")\\b", "g");
   return h.replace(rx, '<button type="button" class="pk-ref pk-inpane" data-pk-ref="$1">$1</button>');
@@ -1166,9 +1166,11 @@ function openPane(a) {
   if (r.t) body += '<p class="pk-panetitle">' + esc(r.t) + "</p>";
   if (r.s) body += paragraphs(r.s);
   (r.f || []).forEach(function (f) { body += '<h3 class="pk-panelab">' + esc(f[0]) + "</h3>" + paragraphs(f[1]); });
-  var src = r.u ? '<a class="pk-panesrc">' + (r.x ? "Open it at the source" : "Read it in full in its own document") + " ↗</a>" : "";
-  paneShow('<span class="pk-paneid">' + esc(id) + "</span>" + chip(r.l) + '<span class="pk-tipsrc">' + esc(r.n || "") + "</span>",
-    body, src, id + (r.t ? ": " + r.t : ""), a.classList.contains("pk-inpane") ? null : a);
+  if (r.m && r.k) body += '<p class="pk-tipmeta">' + esc(r.m) + "</p>";
+  var src = r.u ? '<a class="pk-panesrc">' + (r.x ? "Open it at the source" : r.k ? "See it in the list of terms" : "Read it in full in its own document") + " ↗</a>" : "";
+  var name = r.k || id;
+  paneShow('<span class="pk-paneid">' + esc(name) + "</span>" + chip(r.l) + '<span class="pk-tipsrc">' + esc(r.n || "") + "</span>",
+    body, src, name + (r.t ? ": " + r.t : ""), a.classList.contains("pk-inpane") ? null : a);
   var out = pane.querySelector(".pk-panesrc");
   /* Only a relative or http(s) address: the build refuses any other scheme,
    * and the page holds to that whatever its data says. */
