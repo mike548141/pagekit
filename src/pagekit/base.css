@@ -1,0 +1,168 @@
+/* pagekit base — the one stylesheet a pagekit page is written against.
+   Colours are tokens set per brand (tokens_css in pagekit.py); nothing here
+   names a colour a brand should own. Kept from the best of the earlier
+   pages: a 17 px body, a 109ch measure, 26/19 px headings, a 640 px phone
+   break, folds with a large target, callouts, chips, cards and a print
+   sheet that opens everything. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font); font-size: 17px; line-height: 1.55;
+  font-kerning: normal; text-rendering: optimizeLegibility;
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+.pk-wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+.pk-layout { display: block; }
+.pk-main { max-width: 109ch; min-width: 0; outline: none; padding-bottom: 3rem; }
+.pk-main > :first-child { margin-top: 0; }
+
+/* skip link: hidden until focused */
+.pk-skip {
+  position: absolute; left: 12px; top: -60px; z-index: 50;
+  background: var(--brand-fill); color: var(--brand-on); padding: .5rem .9rem;
+  border-radius: 6px; font-weight: 600; text-decoration: none;
+}
+.pk-skip:focus { top: 12px; }
+
+/* masthead */
+.pk-masthead { border-bottom: 1px solid var(--line); background: var(--bg); }
+.pk-mast { display: flex; align-items: center; gap: 1rem 1.5rem; flex-wrap: wrap; padding-top: 14px; padding-bottom: 14px; }
+.pk-brand { display: flex; align-items: center; gap: .9rem; min-width: 0; }
+.pk-logo { height: 44px; width: auto; display: block; }
+:root[data-theme="dark"] .pk-logo { background: #fff; padding: 4px 8px; border-radius: 6px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pk-logo { background: #fff; padding: 4px 8px; border-radius: 6px; } }
+.pk-org { display: flex; flex-direction: column; line-height: 1.25; }
+.pk-org-alt { font-size: .85rem; color: var(--muted); }
+.pk-org-name { font-weight: 700; color: var(--brand-2-text); }
+.pk-docmeta { margin-left: auto; display: flex; flex-wrap: wrap; gap: .2rem 1rem; justify-content: flex-end; font-size: .82rem; color: var(--muted); }
+.pk-theme {
+  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+  color: var(--brand-text); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: .3rem .85rem;
+}
+.pk-theme:hover { border-color: var(--brand); }
+.pk-theme .pk-theme-d { display: none; }
+:root[data-theme="dark"] .pk-theme .pk-theme-l { display: none; }
+:root[data-theme="dark"] .pk-theme .pk-theme-d { display: inline; }
+
+/* title block */
+.pk-hero { padding: 34px 0 18px; }
+.pk-eyebrow { margin: 0 0 .4rem; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-text); }
+.pk-hero h1 { margin: 0; font-size: clamp(1.75rem, 1.2rem + 1.9vw, 2.5rem); line-height: 1.15; color: var(--brand-2-text); max-width: 30ch; letter-spacing: -.01em; }
+.pk-lead { margin: .7rem 0 0; font-size: 1.12rem; color: var(--muted); max-width: 70ch; }
+.pk-aud { margin: .8rem 0 0; }
+
+/* type */
+.pk-prose h2{ font-size: 26px; line-height: 1.25; margin: 2.2rem 0 .7rem; color: var(--brand-2-text); }
+.pk-prose h3{ font-size: 19px; line-height: 1.3; margin: 1.7rem 0 .5rem; }
+.pk-prose h4{ font-size: 17px; margin: 1.3rem 0 .4rem; }
+.pk-prose p, .pk-prose ul, .pk-prose ol, .pk-prose dl{ margin: 0 0 .9rem; }
+.pk-prose li + li{ margin-top: .25rem; }
+.pk-prose a{ color: var(--brand-text); text-underline-offset: .15em; }
+.pk-prose a:hover{ text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.pk-prose strong{ font-weight: 650; }
+.pk-prose small, .pk-small { font-size: .86rem; }
+.pk-muted { color: var(--muted); }
+.pk-prose code, .pk-prose kbd, .pk-prose pre{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+.pk-prose code{ background: var(--surface); padding: .05em .3em; border-radius: 4px; }
+.pk-prose pre{ background: var(--surface); padding: .8rem 1rem; border-radius: 8px; overflow-x: auto; line-height: 1.45; }
+.pk-prose pre code{ background: none; padding: 0; }
+.pk-prose kbd{ border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 .3em; }
+.pk-prose hr{ border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+.pk-prose blockquote{ margin: 1rem 0; padding: .2rem 0 .2rem 1rem; border-left: 3px solid var(--brand); color: var(--ink); }
+.pk-num, .pk-prose td.num, .pk-prose th.num{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* callouts: a point the reader must not miss; .attn for a risk or a decision */
+.pk-callout { margin: 1.2rem 0; padding: .8rem 1rem; background: var(--surface); border-left: 4px solid var(--brand); border-radius: 0 8px 8px 0; }
+.pk-callout.attn { border-left-color: var(--attn); }
+.pk-callout > :last-child { margin-bottom: 0; }
+.pk-callout > .pk-callout-title { font-weight: 700; margin-bottom: .3rem; }
+
+/* chips: a word, always, with colour beside it, never colour alone */
+.pk-chip { display: inline-block; font-size: .8rem; font-weight: 600; line-height: 1.35; padding: .12rem .6rem; border-radius: 999px; background: var(--surface-2); color: var(--brand-text); border: 1px solid var(--line); }
+.pk-chip.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.pk-chip.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.pk-chip.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+.pk-chip.info { background: var(--info-bg); color: var(--info); border-color: transparent; }
+.pk-chip.unk { background: var(--unk-bg); color: var(--unk); border-color: transparent; }
+
+/* figures at a glance */
+.pk-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .8rem; margin: 1.2rem 0; padding: 0; list-style: none; }
+.pk-stat { background: var(--surface); border-top: 3px solid var(--brand); border-radius: 0 0 8px 8px; padding: .7rem .9rem; margin: 0; }
+.pk-stat b { display: block; font-size: 1.7rem; line-height: 1.1; color: var(--brand-2-text); font-variant-numeric: tabular-nums; }
+.pk-stat span { font-size: .88rem; color: var(--muted); }
+
+/* cards */
+.pk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin: 1.2rem 0; padding: 0; list-style: none; }
+.pk-card { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--brand); border-radius: 8px; padding: .9rem 1rem; margin: 0; }
+.pk-card > :last-child { margin-bottom: 0; }
+.pk-card h3, .pk-card h4 { margin-top: 0; }
+
+/* label : value grids */
+.pk-prose dl.pk-facts{ display: grid; grid-template-columns: minmax(130px, max-content) 1fr; gap: .35rem 1.2rem; }
+.pk-prose dl.pk-facts dt{ font-weight: 600; color: var(--muted); }
+.pk-prose dl.pk-facts dd{ margin: 0; }
+
+/* tables */
+.pk-tablewrap { overflow-x: auto; margin: 1rem 0; -webkit-overflow-scrolling: touch; }
+.pk-prose table{ border-collapse: collapse; width: 100%; font-size: .94rem; font-variant-numeric: tabular-nums; }
+.pk-tablewrap > table { margin: 0; }
+.pk-prose caption{ caption-side: top; text-align: left; font-weight: 600; padding: 0 0 .45rem; color: var(--ink); }
+.pk-prose th, .pk-prose td{ padding: .5rem .7rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.pk-prose thead th{ background: var(--surface-2); color: var(--ink); font-weight: 650; border-bottom: 2px solid var(--brand); white-space: nowrap; }
+.pk-prose tbody th[scope="row"]{ font-weight: 600; }
+.pk-prose tbody tr:hover > *{ background: var(--surface); }
+
+/* folds: depth on demand, native <details>, so the keyboard works */
+.pk-prose details.pk-fold{ margin: .8rem 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.pk-prose details.pk-fold > summary{ cursor: pointer; list-style: none; padding: .7rem 2.6rem .7rem 1rem; font-weight: 650; position: relative; min-height: 44px; }
+.pk-prose details.pk-fold > summary::-webkit-details-marker{ display: none; }
+.pk-prose details.pk-fold > summary::after{ content: "+"; position: absolute; right: 1rem; top: .3rem; font-size: 1.6rem; line-height: 1.2; font-weight: 400; color: var(--brand-text); }
+.pk-prose details.pk-fold[open] > summary::after{ content: "\2212"; }
+.pk-prose details.pk-fold[open] > summary{ border-bottom: 1px solid var(--line); }
+.pk-prose details.pk-fold > .pk-fold-body{ padding: .8rem 1rem .2rem; }
+
+/* figures */
+.pk-prose figure{ margin: 1.4rem 0; }
+.pk-prose figure.pk-figure{ background: var(--surface); border-radius: 8px; padding: 1rem; }
+.pk-prose figure .pk-canvas{ overflow-x: auto; }
+.pk-prose figure svg{ max-width: 100%; height: auto; display: block; }
+.pk-prose figcaption{ font-size: .88rem; color: var(--muted); margin-top: .6rem; }
+.pk-finding { font-weight: 600; margin-bottom: .4rem; }
+
+/* footer */
+.pk-footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; padding: 1.2rem 0 2rem; margin-top: 2rem; }
+
+/* phone */
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .pk-wrap { padding: 0 16px; }
+  .pk-docmeta { margin-left: 0; justify-content: flex-start; }
+  .pk-prose h2 { font-size: 22px; }
+  dl.pk-facts { grid-template-columns: 1fr; }
+  dl.pk-facts dd { margin-bottom: .5rem; }
+}
+
+/* paper: black on white, everything open, no controls */
+@media print {
+  :root { --bg: #fff; --ink: #000; --muted: #333; --surface: #fff; --surface-2: #f2f2f2; color-scheme: light; }
+  body { font-size: 11pt; }
+  .pk-skip, .pk-theme { display: none !important; }
+  .pk-masthead { border-bottom: 1px solid #999; }
+  a { color: inherit; }
+  .pk-main a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .85em; word-break: break-all; }
+  details.pk-fold { border: 0; }
+  details.pk-fold > summary::after { display: none; }
+  details > :not(summary) { display: block !important; }
+  details::details-content { content-visibility: visible; display: contents; }
+  .pk-tablewrap { overflow: visible; }
+  thead { display: table-header-group; }
+  tr, figure, .pk-card, .pk-stat, .pk-callout { break-inside: avoid; }
+  h2, h3, h4 { break-after: avoid; }
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  @page { margin: 16mm 14mm 18mm; }
+}

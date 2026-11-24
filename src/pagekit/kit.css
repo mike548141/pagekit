@@ -1,0 +1,246 @@
+/* pagekit — styles for the reader features in kit.js.
+   Safe on any page: every rule is scoped to a pk- class the script adds, and
+   colours come from the page's own tokens where it has them (earlier pages
+   name them differently), with a neutral fallback. */
+.pk {
+  --pk-accent: var(--brand-text, var(--accent, var(--brand, #3d5a80)));
+  --pk-solid: var(--brand, var(--accent, #3d5a80));
+  --pk-line: var(--line, var(--border, #d0d4d9));
+  --pk-surface: var(--surface, #f2f4f6);
+  --pk-bg: var(--bg, #fff);
+  --pk-ink: var(--text, var(--ink, #1d2125));
+  --pk-muted: var(--muted, #555);
+}
+a[data-pk-href] { cursor: pointer; }
+.pk-prose a[data-pk-href] { text-decoration: underline; text-underline-offset: .15em; }
+.pk-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+
+/* ── long tables: the rows beyond the preview, and the control ──────────── */
+table.pk-collapsed tr.pk-more { display: none; }
+/* The last row shown fades a little, so the cut reads as "there is more". */
+table.pk-collapsed tr.pk-edge > * {
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, rgba(0,0,0,.35));
+          mask-image: linear-gradient(to bottom, #000 40%, rgba(0,0,0,.35));
+}
+.pk-morebar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; margin: .35rem 0 1.25rem; }
+.pk-morebtn, .pk-btn {
+  font: inherit; font-size: .9rem; font-weight: 600; line-height: 1.3;
+  color: var(--pk-accent); background: var(--pk-surface);
+  border: 1px solid var(--pk-line); border-radius: 999px;
+  padding: .35rem .95rem; cursor: pointer; min-height: 36px;
+}
+.pk-morebtn::after { content: " \25BE"; }
+.pk-morebtn[aria-expanded="true"]::after { content: " \25B4"; }
+.pk-morebtn:hover, .pk-btn:hover { border-color: var(--pk-solid); }
+.pk-morebtn:focus-visible, .pk-btn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+.pk-morenote { font-size: .85rem; color: var(--pk-muted); }
+
+/* ── table headings that stay in view ───────────────────────────────────── */
+.pk-float {
+  position: fixed; z-index: 4; display: none; overflow: hidden;
+  pointer-events: none; box-shadow: 0 2px 4px -2px rgba(0,0,0,.25);
+}
+.pk-float table { table-layout: fixed; border-collapse: collapse; margin: 0; }
+
+/* ── parts: the no-script contents list, and the part furniture ────────── */
+.pk-parts ol { list-style: none; margin: 0; padding: 0; }
+.pk-parts li { margin: .2rem 0; }
+.pk-parts-label { margin: 0 0 .5rem; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pk-muted); }
+.pk-parts .pk-ps { display: block; font-size: .85rem; color: var(--pk-muted); }
+.pk-parts .pk-pn { font-weight: 700; color: var(--pk-accent); margin-right: .4rem; }
+.pk-js .pk-rail { display: none; }
+.pk-js .pk-has-parts { display: block; }
+h2.pk-part-title:focus, [data-pk-landed]:focus { outline: none; }
+h2.pk-part-title { margin-top: 0; padding-top: .4rem; display: flex; gap: .6rem; align-items: baseline; }
+h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant-numeric: tabular-nums; }
+.pk-part-summary { font-size: 1.05rem; color: var(--pk-muted); margin-top: -.2rem; }
+.pk-part + .pk-part { margin-top: 3rem; }
+.pk-js .pk-one .pk-part + .pk-part { margin-top: 0; }
+.pk-partnav { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: space-between; margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--pk-line); }
+.pk-partnav a { display: flex; flex-direction: column; max-width: 48%; padding: .6rem .9rem; border: 1px solid var(--pk-line); border-radius: 8px; text-decoration: none; color: var(--pk-ink); }
+.pk-partnav a:hover { border-color: var(--pk-solid); }
+.pk-partnav a small { color: var(--pk-muted); font-size: .8rem; }
+.pk-partnav a b { color: var(--pk-accent); font-weight: 650; }
+.pk-partnav .pk-next { margin-left: auto; text-align: right; }
+.pk-all .pk-partnav { display: none; }
+
+/* ── the panel: contents, search and controls, down the left ──────────── */
+.pk { --pk-panel-w: 300px; }
+.pk-panel {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 30; width: var(--pk-panel-w);
+  overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
+  background: var(--pk-surface); border-right: 1px solid var(--pk-line);
+  padding: 14px 12px 28px; font-size: 14.5px; line-height: 1.35; color: var(--pk-ink);
+  font-family: inherit;
+}
+.pk-panel ol { list-style: none; margin: 0; padding: 0; }
+.pk-panel li { margin: 0; }
+.pk-ptop { position: sticky; top: -14px; z-index: 1; margin: -14px -12px 10px; padding: 14px 12px 10px; background: var(--pk-surface); border-bottom: 1px solid var(--pk-line); }
+.pk-search { display: flex; align-items: center; gap: 8px; background: var(--pk-bg); border: 1px solid var(--pk-line); border-radius: 8px; padding: 0 10px; cursor: text; }
+.pk-search:focus-within { border-color: var(--pk-solid); box-shadow: 0 0 0 2px color-mix(in srgb, var(--pk-solid) 30%, transparent); }
+.pk-search svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--pk-muted); stroke-width: 2; stroke-linecap: round; }
+.pk-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--pk-ink); font: inherit; font-size: 15px; padding: 8px 0; }
+.pk-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.pk-tool { font: inherit; font-size: 14px; font-weight: 600; color: var(--pk-accent); background: var(--pk-bg); border: 1px solid var(--pk-line); border-radius: 8px; padding: 6px 11px; cursor: pointer; min-height: 34px; display: inline-flex; align-items: center; gap: 6px; }
+.pk-tool:hover { border-color: var(--pk-solid); }
+.pk-tool:focus-visible, .pk-panel a:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
+.pk-foldall span { font-size: 18px; font-weight: 400; line-height: 1; width: .8em; text-align: center; }
+.pk-themebtn { margin-left: auto; padding: 6px 8px; }
+.pk-tools .pk-slimbtn { margin-left: 0; }
+.pk-themebtn svg, [data-pk-theme] svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; display: block; }
+[data-pk-theme] .pk-sun, :root[data-theme="dark"] [data-pk-theme] .pk-moon { display: none; }
+:root[data-theme="dark"] [data-pk-theme] .pk-sun { display: block; }
+.pk-l1 > li { margin: 1px 0; }
+.pk-a1 { display: flex; gap: 8px; align-items: baseline; padding: 7px 9px; border-radius: 7px; text-decoration: none; color: var(--pk-ink); font-weight: 600; }
+.pk-a1:hover { background: var(--pk-bg); }
+.pk-a1 .pk-pn { flex: none; min-width: 1.6em; color: var(--pk-accent); font-variant-numeric: tabular-nums; font-weight: 700; }
+.pk-cur > .pk-a1 { background: var(--pk-bg); box-shadow: inset 3px 0 0 var(--pk-solid); color: var(--pk-accent); }
+.pk-l2 { margin: 2px 0 8px 22px !important; border-left: 1px solid var(--pk-line); }
+.pk-l2 a { display: block; padding: 4px 10px; margin-left: -1px; border-left: 2px solid transparent; color: var(--pk-muted); text-decoration: none; font-size: 14px; }
+.pk-l2 a:hover { color: var(--pk-accent); }
+.pk-l2 a.pk-here { color: var(--pk-accent); border-left-color: var(--pk-solid); font-weight: 600; }
+.pk-allbtn { margin-top: 12px; width: 100%; }
+.pk-finding .pk-nav, .pk-finding .pk-allbtn { display: none; }
+.pk-rcount { margin: 2px 4px 8px; font-size: 13px; color: var(--pk-muted); }
+.pk-rsec { margin: 12px 4px 4px; font-size: 12.5px; font-weight: 700; color: var(--pk-accent); }
+.pk-rlist a { display: block; padding: 6px 8px; border-radius: 6px; color: var(--pk-ink); text-decoration: none; font-size: 13.5px; }
+.pk-rlist a:hover { background: var(--pk-bg); }
+.pk-rlist mark { background: color-mix(in srgb, var(--pk-solid) 28%, transparent); color: inherit; border-radius: 2px; }
+.pk-flash { animation: pk-flash 2.4s ease-out; }
+@keyframes pk-flash { 0%, 30% { background: color-mix(in srgb, var(--pk-solid) 22%, transparent); } 100% { background: transparent; } }
+.pk-navbtn, .pk-scrim { display: none; }
+/* The page's own top bars and button rows give way to the panel. */
+.pk-paneled nav.toc, .pk-paneled .toolbar, .pk-paneled .pk-masthead [data-pk-theme] { display: none !important; }
+
+/* a laptop or desktop: the panel is always there, and the page moves over;
+ * folded away, it is a narrow bar of icons */
+.pk { --pk-slim-w: 54px; }
+.pk-slimbar, .pk-slimbtn { display: none; }
+.pk-slimbar svg, .pk-slimbtn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; display: block; }
+@media (min-width: 1100px) {
+  .pk-paneled body { padding-left: var(--pk-panel-w); transition: padding-left .18s ease; }
+  .pk-panel { transition: width .18s ease, padding .18s ease; }
+  .pk-slimbtn { display: inline-flex; padding: 6px 8px; }
+  .pk-slim .pk-panel { width: var(--pk-slim-w); padding: 12px 7px; overflow: hidden; cursor: pointer; }
+  .pk-slim .pk-panel > :not(.pk-slimbar) { display: none !important; }
+  .pk-slim .pk-slimbar { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .pk-slim .pk-slimbar .pk-tool { width: 38px; height: 38px; padding: 0; margin: 0; justify-content: center; }
+  .pk-slim .pk-slimbar .pk-slimfold span { font-size: 20px; font-weight: 400; line-height: 1; }
+  .pk-slim.pk-paneled body { padding-left: var(--pk-slim-w); }
+}
+/* a smaller screen: the panel opens from a Contents button */
+@media (max-width: 1099.98px) {
+  .pk-panel { transform: translateX(-102%); transition: transform .18s ease; box-shadow: 4px 0 24px rgba(0,0,0,.18); width: min(var(--pk-panel-w), 86vw); }
+  .pk-drawer .pk-panel { transform: none; }
+  .pk-navbtn { display: inline-flex; align-items: center; gap: 6px; position: fixed; top: 10px; left: 10px; z-index: 31; font: inherit; font-size: 14px; font-weight: 600; color: var(--pk-accent); background: var(--pk-bg); border: 1px solid var(--pk-line); border-radius: 8px; padding: 6px 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12); cursor: pointer; }
+  .pk-navbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .pk-drawer .pk-navbtn { left: calc(min(var(--pk-panel-w), 86vw) + 10px); }
+  .pk-drawer .pk-scrim { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(0,0,0,.25); }
+  .pk-paneled body { padding-top: 46px; }
+}
+
+/* ── charts draw themselves when they come into view ───────────────────── */
+.pk-mo .pk-bar { transform-box: view-box; transform-origin: 50% 100%; transform: scaleY(0); }
+.pk-mo .pk-tbar { transform-box: fill-box; transform-origin: 0 50%; transform: scaleX(0); }
+.pk-mo .cbarfill { transform-origin: 0 50%; transform: scaleX(0); }
+.pk-mo .pk-mlab { opacity: 0; }
+.pk-mo.pk-in .pk-bar, .pk-mo.pk-in .pk-tbar, .pk-mo.pk-in .cbarfill {
+  transform: none; transition: transform .8s cubic-bezier(.2,.8,.2,1) var(--pk-d, 0s); }
+.pk-mo.pk-in .pk-mlab { opacity: 1; transition: opacity .4s ease var(--pk-d, 0s); }
+
+/* ── identifiers: a card on hover, the whole entry in a pane ─────────────── */
+a.pk-ref[data-pk-ref] { text-decoration-style: dotted; text-underline-offset: 3px; cursor: help; }
+.pk-tip { display: none; position: fixed; z-index: 50; max-width: 380px; box-sizing: border-box; padding: 10px 12px;
+  background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; line-height: 1.4; pointer-events: none; }
+.pk-tiphead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.pk-tipsrc { color: var(--pk-muted); font-size: 12.5px; }
+.pk-tiphint { margin-top: 6px; color: var(--pk-muted); font-size: 12.5px; }
+.pk-lvl { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 99px;
+  color: var(--pk-accent); border: 1px solid var(--pk-solid); }
+.pk-pane { position: fixed; top: 0; right: 0; bottom: 0; z-index: 45; width: min(460px, 92vw); box-sizing: border-box;
+  display: flex; flex-direction: column; background: var(--pk-surface); color: var(--pk-ink);
+  border-left: 1px solid var(--pk-line); box-shadow: -8px 0 28px rgba(0,0,0,.18);
+  transform: translateX(104%); transition: transform .18s ease; visibility: hidden; outline: none; }
+.pk-paneopen .pk-pane { transform: none; visibility: visible; }
+.pk-panehead { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--pk-line); }
+.pk-paneid { font-weight: 700; font-size: 16px; }
+.pk-paneclose { margin-left: auto; font: inherit; font-size: 24px; line-height: 1; width: 34px; height: 34px; border-radius: 8px;
+  border: 1px solid var(--pk-line); background: var(--pk-bg); color: var(--pk-ink); cursor: pointer; }
+.pk-panebody { flex: 1; overflow-y: auto; padding: 6px 16px 16px; font-size: 15px; line-height: 1.5; }
+.pk-panebody p { margin: .5em 0; }
+.pk-panetitle { font-size: 17px; font-weight: 700; color: var(--pk-accent); }
+.pk-panelab { margin: 14px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--pk-muted); }
+.pk-panefoot { padding: 12px 16px; border-top: 1px solid var(--pk-line); }
+.pk-panesrc { font-weight: 600; color: var(--pk-accent); }
+button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; border: 0; padding: 0; text-decoration: underline dotted; cursor: pointer; }
+
+/* ── take a copy of a table or a diagram ───────────────────────────────── */
+.pk-copybtn { position: absolute; z-index: 6; width: 32px; height: 32px; padding: 5px; box-sizing: border-box;
+  border: 1px solid var(--pk-line); border-radius: 8px; background: var(--pk-bg); color: var(--pk-accent);
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .12s ease; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.pk-copybtn svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.pk-copybtn.pk-on, .pk-copybtn:focus-visible { opacity: 1; pointer-events: auto; }
+.pk-copybtn:hover { border-color: var(--pk-solid); }
+.pk-copybtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+@media (hover: none) { .pk-copybtn { opacity: .7; pointer-events: auto; } }
+.pk-copymenu { position: absolute; z-index: 48; min-width: 230px; padding: 6px; box-sizing: border-box;
+  background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.2); }
+.pk-copyitem { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none;
+  border: 0; border-radius: 6px; padding: 7px 10px; cursor: pointer; line-height: 1.3; }
+.pk-copyitem b { display: block; font-size: 14.5px; }
+.pk-copyitem span { display: block; font-size: 12.5px; color: var(--pk-muted); }
+.pk-copyitem:hover, .pk-copyitem:focus-visible { background: var(--pk-bg); outline: 2px solid var(--pk-solid); outline-offset: -2px; }
+.pk-toast { position: fixed; left: 50%; bottom: 44px; z-index: 58; transform: translate(-50%, 12px); max-width: min(560px, 90vw);
+  padding: 10px 16px; border-radius: 10px; background: var(--pk-ink); color: var(--pk-bg); font-size: 14.5px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; }
+.pk-toast.pk-on { opacity: 1; transform: translate(-50%, 0); }
+.pk-copyimg { display: block; max-width: 100%; height: auto; margin: 12px 0; border: 1px solid var(--pk-line); background: #fff; }
+
+/* ── a link to any section ───────────────────────────────────────────────── */
+.pk-linkbtn { display: inline-flex; vertical-align: middle; width: 1.35em; height: 1.35em; max-width: 26px; max-height: 26px;
+  margin: -.1em 0 0 .35em; padding: 2px; box-sizing: border-box; border: 0; border-radius: 6px; background: none;
+  color: var(--pk-accent); cursor: pointer; opacity: 0; transition: opacity .12s ease; }
+.pk-linkbtn svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+:is(h2, h3, h4, summary):hover > .pk-linkbtn, .pk-linkbtn:focus-visible { opacity: 1; }
+.pk-linkbtn:hover { background: var(--pk-surface); }
+.pk-linkbtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
+@media (hover: none) { .pk-linkbtn { opacity: .45; } }
+
+/* ── a security classification marking and a watermark ────────────────────
+ * The marking as the PSR set out for a document: capitals, bold, at least the
+ * body text's size, centred at the top and bottom of every page, in its
+ * classification's colour (black for IN-CONFIDENCE, SENSITIVE, RESTRICTED;
+ * green, blue, red above). A screen counts as a page. On a light strip in both
+ * schemes, so that colour still reads in dark mode. */
+.pk-mark { position: fixed; left: 0; right: 0; z-index: 60; box-sizing: border-box; height: 28px; line-height: 27px;
+  text-align: center; font: 700 16px/27px system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pk-mark, #000); background: #fff; white-space: nowrap; overflow: hidden; }
+.pk-mark-top { top: 0; border-bottom: 1px solid #c8ccd1; }
+.pk-mark-bottom { bottom: 0; border-top: 1px solid #c8ccd1; }
+:root:has(#pk-mark-top) { padding-top: 28px; padding-bottom: 28px; scroll-padding-top: 40px; }
+:root:has(#pk-mark-top) .pk-panel, :root:has(#pk-mark-top) .pk-pane { top: 28px; bottom: 28px; }
+:root:has(#pk-mark-top) .pk-navbtn { top: 38px; }
+.pk-watermark { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; user-select: none; -webkit-user-select: none; overflow: hidden;
+  font: 800 clamp(72px, 13vw, 190px)/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .08em;
+  text-transform: uppercase; color: rgba(128, 128, 128, .13); transform: rotate(-30deg); white-space: nowrap; }
+
+/* ── paper and reduced motion ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) { .pk, .pk * { scroll-behavior: auto !important; transition: none !important; } }
+@media print {
+  .pk-mark { display: none !important; }
+  :root:has(#pk-mark-top) { padding: 0; }
+  .pk-watermark { position: fixed; color: rgba(128, 128, 128, .18); }
+  .pk-mo .pk-bar, .pk-mo .pk-tbar, .pk-mo .cbarfill { transform: none !important; }
+  .pk-mo .pk-mlab { opacity: 1 !important; }
+  table.pk-collapsed tr.pk-more { display: table-row; }
+  table.pk-collapsed tr > * { -webkit-mask-image: none; mask-image: none; }
+  .pk-morebar, .pk-float, .pk-rail, .pk-partnav, .pk-allbtn, .pk-panel, .pk-navbtn, .pk-scrim, .pk-tip, .pk-pane,
+  .pk-copybtn, .pk-copymenu, .pk-toast, .pk-linkbtn { display: none !important; }
+  .pk-paneled body { padding-left: 0 !important; padding-top: 0 !important; }
+  .pk-has-parts { display: block !important; }
+  .pk-part, .pk-part[hidden] { display: block !important; content-visibility: visible !important; }
+  .pk-part + .pk-part { break-before: page; margin-top: 0; }
+}

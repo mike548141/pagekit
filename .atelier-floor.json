@@ -1,0 +1,20 @@
+{
+  "licence": "Apache-2.0",
+  "flags": {
+    "leakscan": {
+      "args": ["--disable", "ipv6"],
+      "why": "the publication guard (tools/guard.py) names the IPv6 documentation range 2001:db8::/32 as the one range it accepts, so its own docstring and messages read as IPv6 addresses to a structural scanner. The guard's local check below gates IP addresses more strictly than leakscan's shapes, passing only documentation ranges (RFC 3849, RFC 5737)"
+    }
+  },
+  "local": {
+    "guard": {
+      "run": "tools/guard.py",
+      "why": "PageKit's own publication guard: no address, host name, email address or GUID outside the reserved and documentation ranges, and no term from a contributor's own denylist, in any tracked file. FORBIDS THE ACT: a public history cannot be recalled"
+    },
+    "extra-hook": {
+      "run": "tools/extra_hook.py",
+      "why": "a contributor's own pre-commit check, named in their clone's git config as pagekit.extraHook and kept outside the repository; passes when none is set",
+      "planes": ["hook"]
+    }
+  }
+}

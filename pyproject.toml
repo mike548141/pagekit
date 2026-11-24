@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pagekit"
+version = "0.1.0"
+description = "One self-contained, brandable HTML page per document, with reader features built in."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Mike Clements" }]  # leakscan:allow:local-term: the author, public as the copyright holder
+keywords = ["html", "template", "report", "accessibility", "self-contained"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["ruff", "mypy", "pytest"]
+
+[project.urls]
+Homepage = "https://github.com/mike548141/pagekit"
+Repository = "https://github.com/mike548141/pagekit"
+Issues = "https://github.com/mike548141/pagekit/issues"
+Changelog = "https://github.com/mike548141/pagekit/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pagekit = ["kit.js", "kit.css", "base.css", "py.typed"]
+
+[tool.ruff]
+line-length = 150
+target-version = "py311"
+
+[tool.ruff.lint]
+# Pinned so a new ruff release cannot change what the gate means.
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Browser scripts and page markup held as strings: a line is one statement or element.
+"tools/probe.py" = ["E501"]
+"examples/sample.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = ["pagekit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
