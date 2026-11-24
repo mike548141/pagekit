@@ -248,3 +248,44 @@ def test_a_page_made_another_way_becomes_parts_by_its_section_class():
     assert '<h2 class="pk-part-title"><span class="num">01' in out and '<h2 class="x pk-part-title">' in out
     assert kit.mark_parts(out, "part") == out
     assert kit.mark_parts('<section class="part"><h2>Only one</h2></section>', "part").count("pk-part") == 0
+
+
+def test_a_marking_that_could_break_out_of_its_stylesheet_is_refused():
+    base = kit.apply('<!doctype html><html><head><meta charset="utf-8"><title>t</title></head><body></body></html>')
+    for bad in ('SENSITIVE</style><img src=x>', 'SENSITIVE"', "IN-CONFIDENCE; color: red"):
+        with pytest.raises(ValueError):
+            kit.set_marks(base, bad)
+    assert ">SENSITIVE//ORCON</div>" in kit.set_marks(base, "SENSITIVE//ORCON")
+
+
+def test_the_logo_address_is_escaped():
+    html = kit.page("T", logo='x" onerror="alert(1)')
+    assert 'onerror="alert(1)"' not in html and "&quot; onerror=" in html
+
+
+def test_a_refset_url_must_be_relative_or_web():
+    page = "<p>See 1.2.C.01.</p>"
+    entries = {"1.2.C.01": {"anchor": "a"}}
+    for bad in ("javascript:alert(1)", " JavaScript:alert(1)", "java\tscript:x", "data:text/html,x"):
+        with pytest.raises(ValueError):
+            kit.link_refs(page, [{"name": "S", "pattern": r"\b1\.2\.C\.01\b", "url": bad, "entries": entries}])
+    for ok in ("https://std.example/doc#", "http://std.example/", "doc.html#", "#", ""):
+        kit.link_refs(page, [{"name": "S", "pattern": r"\b1\.2\.C\.01\b", "url": ok, "entries": entries}])
+
+
+def test_check_finds_more_ways_a_page_reaches_out():
+    found = " | ".join(kit.check(
+        '<meta charset="utf-8"><html lang="en"><head><base href="https://cdn.example/">'
+        '<meta http-equiv="refresh" content="0;url=https://elsewhere.example/">'
+        '<link rel="preconnect" href="https://cdn.example"></head><body>'
+        '<video poster="https://cdn.example/p.png"></video><svg><image href="https://cdn.example/i.png"/></svg>'
+        '<form action="https://forms.example/"></form><a href="#x" ping="https://track.example/">x</a></body></html>'))
+    for what in ("base address", "meta refresh", "network ahead", "video poster", "SVG image", "form", "pings"):
+        assert what in found, what
+    assert kit.check('<meta charset="utf-8"><html lang="en"><svg><image href="data:image/png;base64,AA"/>'
+                     '<use href="#a"/></svg><form action="#"></form></html>') == []
+
+
+def test_the_generator_version_is_the_package_version():
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f'version = "{kit.VERSION}"' in text

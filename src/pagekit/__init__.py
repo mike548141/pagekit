@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
-VERSION = "1"
+VERSION = "0.1.0"   # the package version; a test holds it to pyproject.toml
 
 CSS_ID = "pagekit-css"
 JS_ID = "pagekit-js"
@@ -439,6 +439,11 @@ _MARKS = re.compile(r'<div class="pk-(?:mark|watermark)\b[^"]*" id="pk-(?:mark-t
                     r'|<style id="pk-mark-print">[^<]*</style>\n?')
 
 
+#: What a protective marking is written in: capitals, digits, spaces, hyphens,
+#: colons and slashes (an endorsement after ``//``).
+_MARKING_CHARS = re.compile(r"[A-Z0-9][A-Z0-9 /:\-]*")
+
+
 def classification_of(marking: str) -> tuple[str, str]:
     """The classification word in ``marking`` and its colour. An endorsement
     may sit before it (policy and privacy) or after it, after ``//``
@@ -469,6 +474,10 @@ def set_marks(html: str, marking: str | None = None, watermark: str | None = Non
     html = _MARKS.sub("", html)
     marking = (marking or "").strip().upper()
     watermark = (watermark or "").strip()
+    if marking and not _MARKING_CHARS.fullmatch(marking):
+        # It is written into a stylesheet for the printed margins, where an
+        # escape cannot make arbitrary text safe, so only marking characters pass.
+        raise ValueError(f"a marking holds capitals, digits, spaces, hyphens, colons and slashes only: {marking!r}")
     if not marking and not watermark:
         return html
     top = bottom = tag = wm = ""
@@ -480,7 +489,8 @@ def set_marks(html: str, marking: str | None = None, watermark: str | None = Non
                   f'style="--pk-mark:{colour}">{esc(marking)}</div>\n')
         # On paper the marking goes in the page's own top and bottom margins,
         # where a browser prints running headers, so it never covers a line.
-        box = f'content: "{marking}"; font: 700 12pt sans-serif; color: {colour};'
+        quoted = marking.replace("\\", "\\\\").replace('"', '\\"')
+        box = f'content: "{quoted}"; font: 700 12pt sans-serif; color: {colour};'
         tag = (f'<meta name="protective-marking" content="{esc(marking)}">\n'
                f'<style id="pk-mark-print">@media print {{ @page {{ margin: 16mm 14mm; @top-center {{ {box} }} '
                f'@bottom-center {{ {box} }} }} }}</style>\n')
@@ -584,6 +594,13 @@ def _ref_href(ref: dict, e: dict, here: str) -> tuple[str, bool]:
     return ref.get("url", "") + anchor, True
 
 
+def _unsafe_url(url: str) -> bool:
+    """A link with a scheme other than http or https. Browsers ignore spaces
+    and control characters inside a scheme, so they are dropped first."""
+    m = re.match(r"([a-zA-Z][a-zA-Z0-9+.-]*):", re.sub(r"[\x00-\x20]", "", url))
+    return m is not None and m.group(1).lower() not in ("http", "https")
+
+
 def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
     """Turn every identifier a ``refset`` knows into a link that explains itself.
 
@@ -596,8 +613,13 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
     whole entry in a side pane on click. Only identifiers in ``entries`` are
     linked, so a mistyped one stays plain text rather than linking nowhere.
     Text inside a link, a script or a heading's disclosure is left alone, and
-    so is code unless the refset says ``in_code``. Idempotent."""
+    so is code unless the refset says ``in_code``. A refset's ``url`` must be
+    relative or ``http(s)``: any other scheme (``javascript:``, ``data:``) is
+    refused. Idempotent."""
     import json
+    for ref in refsets:
+        if _unsafe_url(str(ref.get("url") or "")):
+            raise ValueError(f"refset {ref.get('name')!r}: a url must be relative or http(s), not {ref.get('url')!r}")
     sets = [(re.compile(r["pattern"]), r) for r in refsets if r.get("entries")]
     if not sets:
         return html
@@ -690,7 +712,9 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
     more, the reader picks one part at a time from the selector, and with
     scripting off every part shows in order behind a plain contents list.
     Without parts, ``body`` is the page's content. Content is HTML the caller
-    has already escaped; every other argument is plain text. ``marking`` (a
+    has already escaped, and so are ``footer``, ``head_extra`` and
+    ``body_extra``, which are written as given; every other argument is plain
+    text and is escaped here. ``marking`` (a
     New Zealand classification, e.g. ``IN-CONFIDENCE``) and ``watermark``
     (e.g. ``DRAFT``) are set per document; see `set_marks`."""
     b = brand or NEUTRAL_BRAND
@@ -702,7 +726,7 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
 
     mark = ""
     if logo:
-        mark = f'<img class="pk-logo" src="{logo}" alt="{esc(name or "Logo")}">'
+        mark = f'<img class="pk-logo" src="{esc(logo)}" alt="{esc(name or "Logo")}">'
         if logo.startswith("data:"):
             mark += "<!-- secretscan:allow: an inline logo image, not a credential -->"
     names = ""
@@ -911,6 +935,14 @@ _EXTERNAL = [
      "an external picture or embedded object"),
     (re.compile(r"@import\b", re.I), "a stylesheet @import"),
     (re.compile(r"(?<![\w.$])url\(\s*[\"']?(?!data:|#|[\"']?\))"), "a CSS url() that is not inline"),
+    (re.compile(r"<base\b[^>]*\bhref\s*=", re.I), "a base address"),
+    (re.compile(r"<meta\b[^>]*http-equiv=[\"']?refresh[^>]*url\s*=", re.I), "a meta refresh to another address"),
+    (re.compile(r"<link\b[^>]*rel=[\"']?(?:manifest|prefetch|dns-prefetch|preconnect|prerender)\b", re.I),
+     "a link that reaches the network ahead of the reader"),
+    (re.compile(r"<video\b[^>]*\bposter\s*=\s*[\"']?(?!data:)[^\s\"'>]", re.I), "an external video poster"),
+    (re.compile(r"<image\b[^>]*\b(?:xlink:)?href\s*=\s*[\"']?(?!data:|#)[^\s\"'>]", re.I), "an SVG image from outside the file"),
+    (re.compile(r"<form\b[^>]*\baction\s*=\s*[\"']?(?!#|[\"'\s>])", re.I), "a form that sends somewhere"),
+    (re.compile(r"<a\b[^>]*\bping\s*=", re.I), "a link that pings an address"),
 ]
 
 

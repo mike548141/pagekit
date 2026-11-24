@@ -158,7 +158,8 @@ memory kept for this project.
 - atelier's floor (`.githooks/pre-commit`, decisions in `.atelier-floor.json`)
   runs secret, leak, licence and link scans, then the guard, then any
   contributor check named in `git config pagekit.extraHook`.
-- GitHub secret scanning and push protection are on for the published copy.
+- GitHub secret scanning and push protection are turned on when the repository
+  is made public (GitHub offers neither on a private personal repository).
 
 ## Working on the kit
 

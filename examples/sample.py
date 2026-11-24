@@ -41,7 +41,7 @@ DECOMPOSED = "Māori"
 
 CROPS = ["Kūmara", "Potatoes", "Silverbeet", "Beans", "Pumpkin", "Lettuce", "Tomatoes",
          "Garlic", "Puha", "Kale", "Carrots", "Corn"]
-GROUPS = ["Tuesday crew", "School holiday club", "Kaumātua group", "Weekend volunteers",
+GROUPS = ["Tuesday crew", "Holiday club", "Kaumātua group", "Weekend volunteers",
           "Seed savers", "Night owls"]
 BEDS = ["North terrace", "Glasshouse", "Orchard rows", "Herb spiral", "Raised beds", "Lower paddock"]
 

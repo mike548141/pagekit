@@ -1041,6 +1041,9 @@ function openPane(a) {
   paneShow('<span class="pk-paneid">' + esc(id) + "</span>" + chip(r.l) + '<span class="pk-tipsrc">' + esc(r.n || "") + "</span>",
     body, src, id + (r.t ? ": " + r.t : ""), a.classList.contains("pk-inpane") ? null : a);
   var out = pane.querySelector(".pk-panesrc");
+  /* Only a relative or http(s) address: the build refuses any other scheme,
+   * and the page holds to that whatever its data says. */
+  if (out && /^[\s\x00-\x20]*[a-z][a-z0-9+.\-]*:/i.test(r.u || "") && !/^[\s\x00-\x20]*https?:/i.test(r.u)) { out.remove(); out = null; }
   if (out) {
     out.setAttribute("href", r.u);
     if (r.x) { out.target = "_blank"; out.rel = "noopener"; }

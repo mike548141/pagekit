@@ -21,7 +21,7 @@ python3 -m pagekit apply PAGE.html -o OUT.html --lang en-NZ
 | New content | `pagekit.page(title, brand=…, parts=[…] or body=…)` | A whole page: masthead, title, parts, the one stylesheet, the features |
 | A page made another way | `pagekit.apply(html, "en-NZ")` | That page plus the features |
 | Several existing pages to join | `pagekit.compose(title, [{"html", "title"}, …], brand=…)` | One page, one part per page; each keeps its own styles, scoped to its part with CSS `@scope` |
-| Any page | `pagekit.check(html)` / `python3 -m pagekit check PAGE…` | What would stop it travelling as one file |
+| Any page | `pagekit.check(html)` / `python3 -m pagekit check PAGE…` | What would stop it travelling as one file: anything it loads or sends from outside itself in its markup (scripts, styles, fonts, pictures, embedded objects, a base address, a meta refresh, network hints, form actions, link pings). It does not read what a page's own script fetches |
 | Any page | `python3 tools/probe.py PAGE… [--shots DIR]` (needs Playwright) | Every feature exercised in Chromium and WebKit, four ways each (below) |
 
 `examples/sample.py` builds `examples/sample.html`: every feature on invented
@@ -80,7 +80,8 @@ or on paper, the page shows everything.
   in a pane down the right, with a link to its source. An identifier whose
   entry is on this page links there instead. The entries travel in a JSON
   block on the page (only the ones the page cites), so it still works as one
-  file. Inside a SharePoint, OneDrive or Teams viewer the pane works, but its
+  file. A refset's `url` must be relative or `http(s)`; any other scheme is
+  refused. Inside a SharePoint, OneDrive or Teams viewer the pane works, but its
   link to another file or outside site may not (the viewer blocks both).
 - **Long tables** taller than the screen open at three rows, with "Show all N
   rows". Find, print and links into a hidden row open the table. Set a
@@ -105,7 +106,9 @@ or on paper, the page shows everything.
   (on paper, in the page's own margins). It is also written as
   `<meta name="protective-marking">`; no recognised standard labels an HTML
   file the way Office files and PDFs are labelled, so that tag is this kit's
-  own convention. A marking without a classification word is refused. The
+  own convention. A marking without a classification word is refused, and so
+  is one holding anything but capitals, digits, spaces, hyphens, colons and
+  slashes (it is written into the page's print stylesheet). The
   watermark is any word (DRAFT, say) across every page. Neither changes the
   published date. Printing the marking in the margins needs CSS page margin
   boxes: measured in Chromium (Chrome, Edge); not verified in Safari.
