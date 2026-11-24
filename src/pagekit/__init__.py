@@ -638,6 +638,9 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
         html = _REFDATA.sub("", html)
     out: list[str] = []
     skip: list[str] = []
+    # An element marked data-pk-ref="off", and everything inside it, is left
+    # alone (a register whose rows are the entries themselves, say).
+    off_tag, off_depth = "", 0
     # A script, a style block or a comment is one piece, never parsed for
     # tags: a script that builds markup in a string would otherwise open or
     # close tags that are not there.
@@ -649,6 +652,13 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
             m = re.match(r"<(/?)([a-zA-Z][\w-]*)", piece)
             if m:
                 tag = m.group(2).lower()
+                if not piece.endswith("/>"):
+                    if off_tag and tag == off_tag:
+                        off_depth += -1 if m.group(1) else 1
+                        if not off_depth:
+                            off_tag = ""
+                    elif not off_tag and not m.group(1) and 'data-pk-ref="off"' in piece:
+                        off_tag, off_depth = tag, 1
                 if tag in _NO_LINK and not piece.endswith("/>"):
                     if m.group(1):
                         if tag in skip:
@@ -658,7 +668,7 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
                         skip.append(tag)
             out.append(piece)
             continue
-        if not piece.strip():
+        if not piece.strip() or off_tag:
             out.append(piece)
             continue
         for rx, ref in sets:
@@ -679,7 +689,8 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
                     tip += ": " + (line if len(line) <= 280 else line[:277].rsplit(" ", 1)[0] + "…")
                 used[ident] = {k: v for k, v in (("n", ref["name"]), ("l", e.get("level", "")),
                                                   ("t", e.get("title", "")), ("s", e.get("text", "")),
-                                                  ("f", e.get("fields") or []), ("u", href), ("x", outside)) if v}
+                                                  ("f", e.get("fields") or []), ("m", e.get("meta", "")),
+                                                  ("u", href), ("x", outside)) if v}
                 extra = ' target="_blank" rel="noopener"' if outside else ""
                 return (f'<a class="pk-ref" href="{esc(href)}" data-pk-ref="{esc(ident)}" '
                         f'title="{esc(tip)}"{extra}>{ident}</a>')
@@ -696,6 +707,87 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
             i = html.rfind("</body>")
         html = html[:i] + block + html[i:] if i >= 0 else html + block
     return html
+
+
+# ── sources: a citation shows its source ────────────────────────────────
+
+_SOURCE_HEADINGS = {"sources", "references", "bibliography", "works cited"}
+
+
+def _text(fragment: str) -> str:
+    return re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
+
+
+def _source_regions(html: str) -> list[tuple[int, int]]:
+    """Where a page lists its sources: an element marked ``data-pk-sources``,
+    or what follows an h2 or h3 titled Sources, References, Bibliography or
+    Works cited (a number shown before the title is allowed), up to the next
+    heading of the same or a higher level."""
+    regions = []
+    for m in re.finditer(r"<([a-zA-Z][\w-]*)\b[^>]*\bdata-pk-sources\b[^>]*>", html):
+        tag, depth, i = m.group(1).lower(), 1, m.end()
+        for t in re.finditer(rf"<(/?){tag}\b[^>]*>", html[i:], re.I):
+            depth += -1 if t.group(1) else 1
+            if not depth:
+                regions.append((m.start(), i + t.end()))
+                break
+    for m in re.finditer(r"<(h[23])\b[^>]*>(.*?)</\1\s*>", html, re.I | re.S):
+        words = re.sub(r"^[\d.\s]+", "", _text(m.group(2))).lower()
+        if words in _SOURCE_HEADINGS:
+            stop = r"<h2\b" if m.group(1).lower() == "h2" else r"<h[23]\b"
+            nxt = re.compile(stop, re.I).search(html, m.end())
+            regions.append((m.end(), nxt.start() if nxt else len(html)))
+    return regions
+
+
+def link_sources(html: str, here: str = "", name: str = "Source") -> str:
+    """Make every citation of a listed source a link to it, with a card.
+
+    The page's own source list is read (see `_source_regions`): each table
+    row or list item with an ``id`` whose first cell is a marker (a single
+    token such as ``REF-12`` or ``[r-wind]``) becomes an entry: its next
+    cell is the title, the rest its details under the table's own headings.
+    Every mention of a marker elsewhere on the page then links to the row and
+    shows a card naming the source, as identifiers do (`link_refs`). The list
+    itself is marked ``data-pk-ref="off"`` so its rows do not link to
+    themselves. Idempotent; a page with no source list is returned unchanged."""
+    regions = _source_regions(html)
+    if not regions:
+        return html
+    entries: dict[str, dict] = {}
+    marks: list[int] = []
+    for start, end in regions:
+        part = html[start:end]
+        heads = []
+        thead = re.search(r"<thead\b.*?</thead\s*>", part, re.I | re.S)
+        if thead:
+            heads = [_text(h) for h in re.findall(r"<th\b[^>]*>(.*?)</th\s*>", thead.group(0), re.I | re.S)]
+        for row in re.finditer(r"<(tr|li)\b([^>]*)>(.*?)</\1\s*>", part, re.I | re.S):
+            rid = re.search(r'\bid="([^"]+)"', row.group(2))
+            if not rid:
+                continue
+            if row.group(1).lower() == "tr":
+                cells = [_text(c) for c in re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]\s*>", row.group(3), re.I | re.S)]
+            else:
+                lead = re.match(r"\s*<(code|b|strong)\b[^>]*>(.*?)</\1\s*>(.*)", row.group(3), re.I | re.S)
+                cells = [_text(lead.group(2)), _text(lead.group(3))] if lead else []
+            if len(cells) < 2 or not re.fullmatch(r"[^\s]{2,40}", cells[0]) or cells[0] in entries:
+                continue
+            fields = [[heads[i] if i < len(heads) and heads[i] else f"Column {i + 1}", c]
+                      for i, c in enumerate(cells[2:], 2) if c]
+            details = " · ".join(c for c in cells[2:] if c)
+            entries[cells[0]] = {"anchor": rid.group(1), "doc": here or "\0this page", "title": cells[1],
+                                 "meta": details, "fields": fields}
+        for lst in re.finditer(r"<(table|ul|ol)\b(?![^>]*data-pk-ref=)", part, re.I):
+            marks.append(start + lst.end())
+    if not entries:
+        return html
+    for at in sorted(marks, reverse=True):
+        html = html[:at] + ' data-pk-ref="off"' + html[at:]
+    markers = sorted(entries, key=len, reverse=True)
+    pattern = r"(?<![\w\-\[])(?:" + "|".join(re.escape(k) for k in markers) + r")(?![\w\-\]])"
+    return link_refs(html, [{"name": name, "pattern": pattern, "in_code": True, "entries": entries}],
+                     here or "\0this page")
 
 
 # ── page: a whole document ──────────────────────────────────────────────────

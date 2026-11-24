@@ -173,7 +173,7 @@ of the season with the rain, the heat and who turned up.</p>
 <p>The log is wide as well as long: scroll it sideways and the pinned headings follow.</p>
 {season_log()}
 <div class="pk-callout attn"><p class="pk-callout-title">Decision needed</p>
-<p>The north terrace lost most of its beans to wind in December. A windbreak of flax along its
+<p>The north terrace lost most of its beans to wind in December (GS-02). A windbreak of flax along its
 edge would take one working bee, and it is what <a href="#goal-2">goal 2</a> asks for.</p></div>
 <h3 id="working-bee">Calling the working bee</h3>
 <p>The note that went to every group, ready to copy into an email or a text:</p>
@@ -209,8 +209,16 @@ def part_goals() -> str:
 <tbody>{rows}</tbody></table></div>
 <h3 id="why">Why these five</h3>
 <p>They follow from the plots in <a href="#register">part 1</a> and the season in
-<a href="#log">part 2</a>. Ideas for more are welcome on the garden's page, for example
+<a href="#log">part 2</a>, and from what other gardens have written (GS-02, GS-03). Ideas for more are welcome on the garden's page, for example
 <a href="https://www.example.org/garden">the example garden</a> (an outside link).</p>
+<h3 id="sources">Sources</h3>
+<p>Every source this page cites, with when it was read. A citation such as GS-01 shows its
+source when the pointer rests on it.</p>
+<div class="pk-tablewrap"><table><thead><tr><th>Key</th><th>Work</th><th>Written by</th><th>Read on</th></tr></thead><tbody>
+<tr id="src-gs-01"><td>GS-01</td><td>Growing kūmara in a cool climate</td><td>An invented growers' society</td><td>2025-09-14</td></tr>
+<tr id="src-gs-02"><td>GS-02</td><td>Windbreaks for small gardens</td><td>An invented garden trust</td><td>2025-10-02</td></tr>
+<tr id="src-gs-03"><td>GS-03</td><td>Keeping a working bee working</td><td>An invented volunteers' network</td><td>2025-11-20</td></tr>
+</tbody></table></div>
 <details class="pk-fold"><summary>Te reo Māori in this template</summary><div class="pk-fold-body">
 <p>Macrons must survive every route a file takes: Māori, kūmara, kaumātua, Ōtautahi, Tāmaki
 Makaurau, whānau, tūāpapa. Capitals too: Ā Ē Ī Ō Ū.</p>
@@ -221,7 +229,7 @@ Makaurau, whānau, tūāpapa. Capitals too: Ā Ē Ī Ō Ū.</p>
 
 def build() -> str:
     logo = "data:image/svg+xml;base64," + base64.b64encode(LOGO_SVG.encode()).decode()
-    return pagekit.page(
+    return pagekit.link_sources(pagekit.page(
         "Our garden's season: what grew, and what we will change",
         brand=BRAND, logo=logo,
         eyebrow="PageKit sample page",
@@ -238,7 +246,7 @@ def build() -> str:
              "summary": "Five goals and where we stand on each", "html": part_goals()},
         ],
         footer="Example Trust · Te Rōpū Tauira · invented content for showing the template",
-        marking="UNCLASSIFIED", watermark="SAMPLE")
+        marking="UNCLASSIFIED", watermark="SAMPLE"), "sample.html")
 
 
 def main() -> int:

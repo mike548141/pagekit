@@ -412,6 +412,53 @@ def tools_checks(pg, frame, mode: str) -> list:
     return out
 
 
+# A citation of a listed source: its card on hover names the source and when it
+# was read; a click lands on the source's row.
+SOURCE_PICK = r"""async () => { const d = document;
+  d.querySelectorAll('[data-probe]').forEach(x => x.removeAttribute('data-probe'));
+  const hrefOf = a => a.getAttribute('data-pk-href') || a.getAttribute('href') || '';
+  const cite = [...d.querySelectorAll('a.pk-ref[data-pk-ref]')].find(a => {
+    const t = hrefOf(a).startsWith('#') && d.getElementById(hrefOf(a).slice(1));
+    return t && t.closest('[data-pk-ref="off"]') && !a.closest('[data-pk-ref="off"]'); });
+  if (!cite) return null;
+  if (cite.closest('.pk-part[hidden]')) {
+    cite.id = cite.id || 'pk-probe-cite';
+    const a = d.createElement('a'); a.setAttribute('data-pk-href', '#' + cite.id); d.body.appendChild(a); a.click(); a.remove();
+    const t0 = Date.now(); while (Date.now() - t0 < 2500 && cite.closest('.pk-part[hidden]')) await new Promise(r => setTimeout(r, 60));
+  }
+  let f = cite.closest('details:not([open])'); while (f) { f.open = true; f = f.parentElement.closest('details:not([open])'); }
+  cite.scrollIntoView({block: 'center', behavior: 'instant'});
+  await new Promise(r => setTimeout(r, 400));
+  const row = d.getElementById(hrefOf(cite).slice(1));
+  cite.setAttribute('data-probe', 'cite');
+  return {id: cite.dataset.pkRef, target: row.id, cells: [...row.cells].map(c => c.textContent.trim())}; }"""
+SOURCE_TIP = r"""() => { const t = document.querySelector('.pk-tip');
+  return t && getComputedStyle(t).display !== 'none' ? t.textContent : ''; }"""
+SOURCE_LANDED = r"""(id) => { const r = document.getElementById(id); if (!r) return false;
+  const b = r.getBoundingClientRect(); return b.height > 0 && b.top >= 0 && b.bottom <= innerHeight; }"""
+
+
+def source_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    got = frame.evaluate(SOURCE_PICK)
+    if not got:
+        return out
+    c = frame.locator('[data-probe="cite"]')
+    c.hover()
+    pg.wait_for_timeout(600)
+    tip = frame.evaluate(SOURCE_TIP)
+    title, when = got["cells"][1], got["cells"][-1]
+    out.append(["a cited source shows its card on hover", got["id"] in tip and title in tip and when in tip,
+                f"{got['id']}: card {'names it and when it was read' if title in tip and when in tip else repr(tip[:80])}"])
+    pg.mouse.move(2, 2)
+    pg.wait_for_timeout(200)
+    c.click()
+    pg.wait_for_timeout(700)
+    landed = frame.evaluate(SOURCE_LANDED, got["target"])
+    out.append(["a click on a citation lands on its source", landed, got["target"]])
+    return out
+
+
 def block_checks(pg, frame, mode: str) -> list:
     out: list = []
     for kind, label in (("code", "Copy code"), ("message", "Copy message")):
@@ -517,6 +564,10 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                         checks += link_checks(pg, frame, mode)
                     except Exception as e:
                         checks.append(["section links", False, str(e).splitlines()[0][:160]])
+                    try:
+                        checks += source_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["citing a source", False, str(e).splitlines()[0][:160]])
                     try:
                         checks += tools_checks(pg, frame, mode)
                     except Exception as e:

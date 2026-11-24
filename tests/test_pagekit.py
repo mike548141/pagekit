@@ -295,3 +295,40 @@ def test_check_finds_more_ways_a_page_reaches_out():
 def test_the_generator_version_is_the_package_version():
     text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert f'version = "{kit.VERSION}"' in text
+
+
+SOURCES_PAGE = (
+    '<p>As REF-12 and [r-wind] show, and REF-12 again; REF-120 is not one.</p>'
+    '<h3 id="references">References</h3><p>Every work cited.</p>'
+    '<table><thead><tr><th>Key</th><th>Work</th><th>Author</th><th>Accessed</th></tr></thead><tbody>'
+    '<tr id="ref-12"><td>REF-12</td><td>A field guide</td><td>A society</td><td>2025-01-02</td></tr>'
+    '<tr id="ref-w"><td><code>[r-wind]</code></td><td><a href="https://e.example/">A note on wind</a></td><td>A trust</td><td></td></tr>'
+    '</tbody></table><h3>Next</h3><p>REF-12 later.</p>')
+
+
+def test_a_cited_source_links_to_its_row_and_carries_who_and_when():
+    out = kit.link_sources(SOURCES_PAGE, "a/p.html")
+    assert out.count('href="#ref-12"') == 3 and out.count('href="#ref-w"') == 1
+    assert "REF-120" in out and 'data-pk-ref="REF-120"' not in out, "a longer id is not a citation"
+    assert '<table data-pk-ref="off">' in out, "the list does not link to itself"
+    blob = json.loads(out.split('id="pk-refdata">', 1)[1].split("</script>", 1)[0].replace("<\\/", "</"))
+    assert blob["REF-12"]["t"] == "A field guide" and blob["REF-12"]["m"] == "A society · 2025-01-02"
+    assert blob["REF-12"]["n"] == "Source" and not blob["REF-12"].get("x")
+    assert kit.link_sources(out, "a/p.html") == out, "idempotent"
+    assert kit.fingerprint(out) == kit.fingerprint(SOURCES_PAGE), "a citation link is not a new edition"
+
+
+def test_sources_marked_by_attribute_or_list_and_none_left_alone():
+    page = ('<p>As [r1] shows.</p><ul data-pk-sources><li id="r-1"><code>[r1]</code> A book, 2024</li></ul>')
+    out = kit.link_sources(page)
+    assert 'href="#r-1"' in out and 'data-pk-ref="[r1]"' in out
+    plain = "<p>No sources here: REF-1.</p>"
+    assert kit.link_sources(plain) == plain
+
+
+def test_a_region_marked_off_is_never_linked():
+    refs = [{"name": "STD", "pattern": r"\b1\.2\.C\.01\b", "url": "https://std.example/doc#",
+             "entries": {"1.2.C.01": {"anchor": "P-7"}}}]
+    page = '<p>1.2.C.01</p><table data-pk-ref="off"><tr><td><table><tr><td>1.2.C.01</td></tr></table>1.2.C.01</td></tr></table><p>1.2.C.01</p>'
+    out = kit.link_refs(page, refs)
+    assert out.count('data-pk-ref="1.2.C.01"') == 2, "outside the region only, nested tables included"

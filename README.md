@@ -83,6 +83,16 @@ or on paper, the page shows everything.
   file. A refset's `url` must be relative or `http(s)`; any other scheme is
   refused. Inside a SharePoint, OneDrive or Teams viewer the pane works, but its
   link to another file or outside site may not (the viewer blocks both).
+- **Sources that explain themselves.** `link_sources(html, here)` reads the
+  page's own list of sources: what follows an h2 or h3 titled Sources,
+  References, Bibliography or Works cited, or any element marked
+  `data-pk-sources`. Each table row or list item with an `id` whose first cell
+  is a marker (one token, such as `REF-12` or `[r-wind]`) is a source:
+  its next cell the title, the rest its details. Every mention of a marker
+  elsewhere on the page then links to the source's row and, when the pointer
+  rests on it or it takes keyboard focus, shows a card naming the source and
+  its details (who, and when it was read). The list's own rows are left
+  unlinked (`data-pk-ref="off"`, which keeps any region out of `link_refs`).
 - **Long tables** taller than the screen open at three rows, with "Show all N
   rows". Find, print and links into a hidden row open the table. Set a
   table's preview with `data-pk-preview="5"` or `"all"`; leave a table alone

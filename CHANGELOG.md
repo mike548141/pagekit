@@ -24,3 +24,7 @@
   re-applied in either order without moving anything.
 - A table's filter matches the words in its cells, never the end of one cell
   run into the start of the next.
+- Sources that explain themselves: `link_sources` turns every citation of a
+  listed source into a link to it with a card naming the source, who wrote
+  it and when it was read; `data-pk-ref="off"` keeps a region out of
+  `link_refs`.

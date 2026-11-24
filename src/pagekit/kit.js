@@ -1099,6 +1099,7 @@ function showTip(a) {
   tip.innerHTML = '<div class="pk-tiphead"><b>' + esc(a.getAttribute("data-pk-ref")) + "</b>" + chip(r.l) +
     '<span class="pk-tipsrc">' + esc(r.n || "") + "</span></div>" +
     (r.t || r.s ? '<div class="pk-tipbody">' + esc(clip(r.t || r.s, 240)) + "</div>" : "") +
+    (r.m ? '<div class="pk-tipmeta">' + esc(clip(r.m, 160)) + "</div>" : "") +
     '<div class="pk-tiphint">' + (inPage(a) ? "Click to go to it on this page" : "Click for the full description") + "</div>";
   tip.style.display = "block";
   var b = a.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;

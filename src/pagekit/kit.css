@@ -275,3 +275,6 @@ th[aria-sort="descending"] .pk-sortmark::after { content: "\25BC"; opacity: 1; }
   tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: table-row; }
   .pk-sortmark { display: none; }
 }
+
+/* a source card's details line: who and when */
+.pk-tipmeta { margin-top: 4px; font-size: 12.5px; color: var(--pk-muted); }
