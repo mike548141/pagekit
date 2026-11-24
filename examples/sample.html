@@ -1285,7 +1285,7 @@ function go(t, id, flash) {
   });
 }
 function tame(scope) {
-  if (!FRAMED || !(OWN || (scope && scope !== doc))) return;
+  if (!FRAMED) return;
   each((scope || doc).querySelectorAll('a[href^="#"]'), function (a) {
     var h = a.getAttribute("href");
     if (h.length < 2) return;
@@ -2049,7 +2049,7 @@ function init() {
   function follow(e, a) {
     var id = linkTarget(a).slice(1), t = byId(id);
     if (!t) return;
-    if (!OWN) { openTableHolding(t); return; }
+    if (!OWN && !FRAMED) { openTableHolding(t); return; }
     e.preventDefault();
     go(t, id);
   }

@@ -28,3 +28,7 @@
   listed source into a link to it with a card naming the source, who wrote
   it and when it was read; `data-pk-ref="off"` keeps a region out of
   `link_refs`.
+- A link a page already makes to one of its listed sources gets the source's
+  card too.
+- Inside a document viewer's frame the kit follows every page's in-page
+  links itself, so a link into a closed section opens it there as well.

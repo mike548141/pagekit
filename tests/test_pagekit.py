@@ -332,3 +332,15 @@ def test_a_region_marked_off_is_never_linked():
     page = '<p>1.2.C.01</p><table data-pk-ref="off"><tr><td><table><tr><td>1.2.C.01</td></tr></table>1.2.C.01</td></tr></table><p>1.2.C.01</p>'
     out = kit.link_refs(page, refs)
     assert out.count('data-pk-ref="1.2.C.01"') == 2, "outside the region only, nested tables included"
+
+
+def test_a_link_the_page_already_makes_to_a_source_gets_its_card():
+    page = ('<p>As <a href="#ref-12" title="A field guide">the guide</a> says.</p><h3>References</h3>'
+            '<table><thead><tr><th>Key</th><th>Work</th><th>Author</th></tr></thead><tbody>'
+            '<tr id="ref-12"><td>REF-12</td><td>A field guide</td><td>A society</td></tr></tbody></table>')
+    out = kit.link_sources(page, "p.html")
+    assert '<a class="pk-ref" href="#ref-12" title="A field guide" data-pk-ref="REF-12">the guide</a>' in out
+    blob = json.loads(out.split('id="pk-refdata">', 1)[1].split("</script>", 1)[0].replace("<\\/", "</"))
+    assert blob["REF-12"]["m"] == "A society"
+    assert kit.link_sources(out, "p.html") == out
+

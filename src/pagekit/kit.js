@@ -881,7 +881,7 @@ function go(t, id, flash) {
 }
 
 function tame(scope) {
-  if (!FRAMED || !(OWN || (scope && scope !== doc))) return;
+  if (!FRAMED) return;
   each((scope || doc).querySelectorAll('a[href^="#"]'), function (a) {
     var h = a.getAttribute("href");
     if (h.length < 2) return;
@@ -1777,7 +1777,10 @@ function init() {
   function follow(e, a) {
     var id = linkTarget(a).slice(1), t = byId(id);
     if (!t) return;
-    if (!OWN) { openTableHolding(t); return; }
+    /* A page the kit was added to keeps its own links, except inside a
+     * viewer's frame, where the browser cannot follow a "#" link in a
+     * sandboxed document and the kit has to (measured in both engines). */
+    if (!OWN && !FRAMED) { openTableHolding(t); return; }
     e.preventDefault();
     go(t, id);
   }

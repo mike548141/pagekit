@@ -696,7 +696,19 @@ def link_refs(html: str, refsets: Sequence[dict], here: str = "") -> str:
                         f'title="{esc(tip)}"{extra}>{ident}</a>')
             piece = rx.sub(one, piece)
         out.append(piece)
-    html = "".join(out)
+    return _write_refdata("".join(out), used)
+
+
+def _write_refdata(html: str, used: dict[str, dict]) -> str:
+    """``html`` with ``used`` merged into its identifier data block."""
+    import json
+    old = _REFDATA.search(html)
+    if old:
+        try:
+            used = {**json.loads(old.group(0).split(">", 1)[1].rsplit("</script>", 1)[0].replace("<\\/", "</")), **used}
+        except ValueError:
+            pass
+        html = _REFDATA.sub("", html)
     if used:
         blob = json.dumps(used, ensure_ascii=False, separators=(",", ":"), sort_keys=True).replace("</", "<\\/")
         block = f'<script type="application/json" id="{REFDATA_ID}">{blob}</script>\n'
@@ -786,8 +798,44 @@ def link_sources(html: str, here: str = "", name: str = "Source") -> str:
         html = html[:at] + ' data-pk-ref="off"' + html[at:]
     markers = sorted(entries, key=len, reverse=True)
     pattern = r"(?<![\w\-\[])(?:" + "|".join(re.escape(k) for k in markers) + r")(?![\w\-\]])"
-    return link_refs(html, [{"name": name, "pattern": pattern, "in_code": True, "entries": entries}],
+    html = link_refs(html, [{"name": name, "pattern": pattern, "in_code": True, "entries": entries}],
                      here or "\0this page")
+    return _card_source_links(html, entries, name)
+
+
+def _card_source_links(html: str, entries: dict[str, dict], name: str) -> str:
+    """A link the page already makes to a listed source (``href="#row"``) gets
+    the same card as a marker the kit linked. Scripts, styles and the source
+    list itself are left alone."""
+    by_anchor = {e["anchor"]: k for k, e in entries.items()}
+    used: dict[str, dict] = {}
+    out: list[str] = []
+    off_tag, off_depth = "", 0
+    for piece in _PIECES.split(html):
+        if piece.startswith(("<script", "<style", "<!--")) or not piece.startswith("<"):
+            out.append(piece)
+            continue
+        m = re.match(r"<(/?)([a-zA-Z][\w-]*)", piece)
+        tag = m.group(2).lower() if m else ""
+        if m and not piece.endswith("/>"):
+            if off_tag and tag == off_tag:
+                off_depth += -1 if m.group(1) else 1
+                if not off_depth:
+                    off_tag = ""
+            elif not off_tag and not m.group(1) and 'data-pk-ref="off"' in piece:
+                off_tag, off_depth = tag, 1
+        href = re.search(r'\bhref="#([^"]+)"', piece) if tag == "a" and not off_tag else None
+        key = by_anchor.get(_html.unescape(href.group(1))) if href else None
+        if key and "data-pk-ref=" not in piece:
+            e = entries[key]
+            used[key] = {k: v for k, v in (("n", name), ("t", e["title"]), ("m", e["meta"]), ("f", e["fields"]),
+                                           ("u", "#" + e["anchor"])) if v}
+            cls = re.search(r'\bclass="([^"]*)"', piece)
+            piece = (piece.replace(cls.group(0), f'class="{cls.group(1)} pk-ref"', 1) if cls
+                     else '<a class="pk-ref"' + piece[2:])
+            piece = re.sub(r"\s*/?>$", "", piece) + f' data-pk-ref="{esc(key)}">'
+        out.append(piece)
+    return _write_refdata("".join(out), used) if used else "".join(out)
 
 
 # ── page: a whole document ──────────────────────────────────────────────────
