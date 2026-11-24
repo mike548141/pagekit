@@ -885,6 +885,10 @@ function tame(scope) {
   each((scope || doc).querySelectorAll('a[href^="#"]'), function (a) {
     var h = a.getAttribute("href");
     if (h.length < 2) return;
+    /* A page's own contents bar keeps its links as written: the page's own
+     * script may read them, and the panel stands in for the bar on screen.
+     * The click handler below still follows them. */
+    if (a.closest("nav.toc")) return;
     a.setAttribute("data-pk-href", h);
     a.removeAttribute("href");
     a.setAttribute("role", "link");
