@@ -106,7 +106,7 @@ in atelier and is read on demand — never wholesale.
   how to find them) is atelier's: `method/TOOLBOX.md`. The root is a private
   repo like any other: it may be named, and in a public tree what it holds and
   its condition go by type only (`RECORD.md` § *The record is public*).
-- **This repo's visibility:** private while it is prepared for public release; it goes public only on its owner's word.
+- **This repo's visibility:** public on GitHub, with secret scanning and push protection on.
   Verify: `gh repo view mike548141/pagekit --json visibility`.
 <!-- stamp:end -->
 
@@ -158,8 +158,7 @@ memory kept for this project.
 - atelier's floor (`.githooks/pre-commit`, decisions in `.atelier-floor.json`)
   runs secret, leak, licence and link scans, then the guard, then any
   contributor check named in `git config pagekit.extraHook`.
-- GitHub secret scanning and push protection are turned on when the repository
-  is made public (GitHub offers neither on a private personal repository).
+- GitHub secret scanning and push protection are on for the repository.
 
 ## Working on the kit
 
