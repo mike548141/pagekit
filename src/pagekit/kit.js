@@ -1089,10 +1089,13 @@ function build(rec) {
   rec.built = rec.table.getBoundingClientRect().width;
 }
 
+/* A table in a closed section is not on screen, yet both engines still lay it
+ * out and report a box for it (the section's contents are hidden, not
+ * removed), so its box alone would pin its heading over whatever is there. */
 function place(rec, top) {
   var t = rec.table, r = t.getBoundingClientRect(), hh = t.tHead.getBoundingClientRect().height;
   var show = r.width > 0 && r.top < top && r.bottom - hh * 2 > top && t.getClientRects().length &&
-    !t.closest(".pk-part[hidden]");
+    !t.closest(".pk-part[hidden], .pk-tab[hidden], details:not([open])");
   if (!show) { if (rec.shell.style.display !== "none") rec.shell.style.display = "none"; return; }
   if (Math.abs(rec.built - r.width) > 0.5 || !rec.copy.firstChild) build(rec);
   var clip = rec.scroller ? rec.scroller.getBoundingClientRect() : r;

@@ -10,3 +10,4 @@ build/
 dist/
 probe-shots/
 examples/small.html
+examples/table_term.html

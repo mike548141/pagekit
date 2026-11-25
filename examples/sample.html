@@ -1491,7 +1491,7 @@ function build(rec) {
 function place(rec, top) {
   var t = rec.table, r = t.getBoundingClientRect(), hh = t.tHead.getBoundingClientRect().height;
   var show = r.width > 0 && r.top < top && r.bottom - hh * 2 > top && t.getClientRects().length &&
-    !t.closest(".pk-part[hidden]");
+    !t.closest(".pk-part[hidden], .pk-tab[hidden], details:not([open])");
   if (!show) { if (rec.shell.style.display !== "none") rec.shell.style.display = "none"; return; }
   if (Math.abs(rec.built - r.width) > 0.5 || !rec.copy.firstChild) build(rec);
   var clip = rec.scroller ? rec.scroller.getBoundingClientRect() : r;

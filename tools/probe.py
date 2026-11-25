@@ -182,6 +182,29 @@ async () => {
     add('headings stay in view', fl.length === 1 && aligned, fl.length + ' pinned, aligned ' + aligned);
     b.click(); await wait(200);
   }
+  // A table in a closed section pins no heading. Both engines keep a box for
+  // what a closed section holds, laid out over whatever follows the section,
+  // so the page is stepped until that box crosses the top of the screen. Room
+  // is made below the page first: a section near the end of the page could
+  // not otherwise be scrolled that far, and the check would prove nothing.
+  const headOf = x => x.tHead.textContent.replace(/\s+/g, ' ').trim();
+  const hid = [...d.querySelectorAll('table')].find(x => x.tHead && x.tHead.rows.length && shut(x)
+    && !x.closest('.pk-part[hidden], .pk-float, .pk-panel, figure, [data-pk="off"]') && x.getClientRects().length
+    && x.getBoundingClientRect().height > 3 * x.tHead.getBoundingClientRect().height);  // tall enough to pin at all
+  if (hid) {
+    const h = headOf(hid), hh = hid.tHead.getBoundingClientRect().height, pad = d.body.style.paddingBottom;
+    d.body.style.paddingBottom = 2 * innerHeight + 'px';
+    let crossed = false, pinned = 0;
+    for (let k = 0; k < 40 && !pinned; k++) {
+      const r = hid.getBoundingClientRect(), y = Math.max(r.height - 2 * hh, 4) * k / 40 + 2;
+      scrollBy({top: r.top + y, behavior: 'instant'}); await wait(40); await new Promise(f => requestAnimationFrame(() => requestAnimationFrame(f)));
+      const r2 = hid.getBoundingClientRect(); if (r2.top < hh && r2.bottom > 2 * hh) crossed = true;  // at the top, under any bar fixed there
+      pinned = [...d.querySelectorAll('.pk-float')].filter(f => f.style.display === 'block' && headOf(f.querySelector('table')) === h).length;
+    }
+    add('a table in a closed section pins no heading', crossed && !pinned, (pinned ? 'its heading pinned' : 'nothing pinned')
+        + '; its hidden box ' + (crossed ? 'crossed' : 'never crossed') + ' the top of the screen');
+    d.body.style.paddingBottom = pad; scrollTo(0, 0); await wait(150);
+  }
   const deep = [...d.querySelectorAll(LINKS)].find(a => { const t = d.getElementById(hrefOf(a).slice(1)); return t && t.closest('tr.pk-more'); });
   if (deep) { const t = d.getElementById(hrefOf(deep).slice(1));
     const p = deep.closest('.pk-part'); if (p) { const l = [...d.querySelectorAll('.pk-panel .pk-a1')].find(a => hrefOf(a) === '#' + p.id); l && l.click(); await wait(250); }
@@ -330,6 +353,12 @@ def copy_checks(pg, frame, mode: str) -> list:
     def item(name: str):
         return frame.locator(".pk-copymenu .pk-copyitem", has_text=name)
 
+    # An earlier check can leave the mouse over a table (a term clicked in one of
+    # its cells), and a table under the mouse rightly shows its button; so the
+    # mouse leaves the page's content, and the button its fade, before the
+    # check reads whether the button waits to be pointed at.
+    pg.mouse.move(2, 2)
+    pg.wait_for_timeout(500)
     t = menu("table")
     if t:
         # The pointer moves from a diagram to the table: only the table's shows.

@@ -71,3 +71,13 @@
   fails when the page uses a feature whose code was left out, or a feature it
   carries does not act as it does with the whole kit.
 - `examples/small.py` builds a short page that uses only some features.
+- A table in a closed section no longer pins its heading over the page.
+  Both engines keep a box for what a closed section holds, laid out over
+  whatever follows it, so on a page with tables in a closed section, two or
+  three heading copies could be pinned at once over a table being read.
+  `tools/probe.py` checks it on any page with a table in a closed section.
+- `tools/probe.py`: the copy check moves the mouse off the page's content
+  before reading whether a table's copy button waits to be pointed at. An
+  earlier check could leave the mouse over that table (a defined term clicked
+  in one of its cells), where the button rightly shows. `examples/table_term.py`
+  builds a page with that shape for the probe.

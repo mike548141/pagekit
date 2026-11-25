@@ -622,3 +622,17 @@ def test_the_small_page_builds_and_carries_only_some_features(tmp_path):
     text = dest.read_text(encoding="utf-8")
     carried = kit.features_carried(text)
     assert carried and set(carried) < set(kit.FEATURES), "the probe's page with only some features"
+
+
+def test_the_table_term_page_keeps_the_shape_the_probe_needs(tmp_path):
+    """A defined term in the first table, and no tabs or copy blocks that would
+    move the probe's mouse after it clicks the term."""
+    dest = tmp_path / "table_term.html"
+    out = subprocess.run([sys.executable, str(ROOT / "examples/table_term.py"), "-o", str(dest)],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout + out.stderr
+    text = dest.read_text(encoding="utf-8")
+    carried = kit.features_carried(text)
+    assert {"cards", "copy-out"} <= set(carried) and not {"tabs", "copy-blocks"} & set(carried)
+    first = re.search(r"<table\b.*?</table>", text, re.S)
+    assert first and 'class="pk-ref pk-term"' in first.group(0)

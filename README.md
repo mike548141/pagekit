@@ -28,7 +28,8 @@ python3 -m pagekit apply PAGE.html -o OUT.html --lang en-NZ
 `examples/sample.py` builds `examples/sample.html`: every feature on invented
 content (a community garden's season report). Open it to see the kit, or use it to test a
 hosting route. `examples/small.py` builds `examples/small.html` on demand, a
-short page that uses only some features.
+short page that uses only some features, and `examples/table_term.py` builds
+`examples/table_term.html`, a page whose first table holds a defined term.
 
 ## The brand
 
@@ -248,5 +249,10 @@ The probe uses Playwright's builds of both, not the installed browsers.
 - A check that copies must use real mouse clicks (a browser only copies in
   answer to one); a check must wait for the page to act, not for something
   that was already on screen; prove each new check by breaking the feature.
+- A closed section's contents still have a box in both engines, laid out
+  over what follows the section: `getClientRects()` does not say a thing is on
+  screen. Test `details:not([open])` as well.
+- A probe check that reads whether something shows only when pointed at must
+  move the mouse off the page first: an earlier check may have left it there.
 - A caller that stamps a published date should compare `fingerprint()` before
   and after a kit change, so a change of look never moves a date.
