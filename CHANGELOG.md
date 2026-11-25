@@ -38,3 +38,7 @@
 - Defined terms: `link_terms` links the first mention of each glossary term in
   every section to a card with its meaning, and a click goes to where it is
   defined or opens it in the pane with its source.
+- `tools/probe.py`: the copy check brings the copy button itself to the
+  middle of the screen before clicking it, so the check no longer depends on
+  where an earlier step left the page (a long table's button could sit under
+  its pinned heading).

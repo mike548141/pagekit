@@ -236,6 +236,14 @@ COPY_PICK = r"""async (kind) => {
   const box = boxOf(b), hidden = getComputedStyle(b).opacity === '0';
   box.scrollIntoView({block: 'center', behavior: 'instant'});
   box.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+  // Then the button itself to the middle of the screen. Centring a table
+  // taller than the screen leaves its top, and so its button, above the fold,
+  // where the click would scroll it in only as far as the top edge, under a
+  // pinned heading. Where it lands must not depend on where a step before
+  // this one left the page.
+  b.scrollIntoView({block: 'center', behavior: 'instant'});
+  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 60)));
+  box.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
   b.setAttribute('data-probe', '1');
   const t = box.matches('table') ? box : box.querySelector('table');
   return {hidden, rows: t ? t.rows.length : 0, n: window.__pkcopy.length};
