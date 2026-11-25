@@ -652,6 +652,9 @@ def term_checks(pg, frame, mode: str) -> list:
             continue
         loc = frame.locator(f'[data-probe-term="{kind}"]')
         loc.scroll_into_view_if_needed()
+        # Two terms can sit at the same screen point once each is scrolled into
+        # view; a hover that does not move the mouse fires no hover event.
+        pg.mouse.move(2, 2)
         pg.wait_for_timeout(300)
         loc.hover()
         pg.wait_for_timeout(600)

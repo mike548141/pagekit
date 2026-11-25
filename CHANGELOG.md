@@ -42,3 +42,10 @@
   middle of the screen before clicking it, so the check no longer depends on
   where an earlier step left the page (a long table's button could sit under
   its pinned heading).
+- `fingerprint` leaves out the masthead, parts panel, skip link and part
+  numbers `page()` writes, so moving a page onto `page()` keeps its published
+  date; `fingerprint(html, furniture)` also leaves out elements named
+  `tag.class`, for the furniture of pages made another way.
+- `tools/probe.py`: the defined-term check moves the mouse away before each
+  hover, since two terms can sit at the same screen point once each is
+  scrolled into view and a hover that does not move the mouse shows nothing.

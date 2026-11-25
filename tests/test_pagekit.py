@@ -137,6 +137,27 @@ def test_a_change_of_look_is_not_a_new_edition():
     assert kit.fingerprint(a) != kit.fingerprint(c)
 
 
+def test_moving_a_page_onto_the_builder_is_not_a_new_edition():
+    """The builder's masthead, parts panel, skip link and part numbers are
+    furniture; so is another way's masthead and contents, when named."""
+    words = "<p>The beds were dug in spring.</p>"
+    parts = [{"title": "Spring", "html": words}, {"title": "Summer", "html": "<p>Then summer.</p>"}]
+    a = kit.page("Season report", parts=parts, meta=["Draft"], byline="A. Gardener")
+    b = kit.page("Season report", parts=parts, meta=["Final", "For members"], byline="B. Gardener")
+    assert kit.fingerprint(a) == kit.fingerprint(b)
+    changed = [dict(parts[0], html="<p>The beds were dug in autumn.</p>"), parts[1]]
+    assert kit.fingerprint(kit.page("Season report", parts=changed)) != kit.fingerprint(a)
+    older = ('<a class="skip" href="#m">Skip</a><header class="banner"><b>Garden club</b></header>'
+             '<nav class="toc"><a href="#s">Spring</a></nav><h2>Spring</h2>' + words)
+    newer = kit.page("Season report", body="<h2>Spring</h2>" + words)
+    newer = newer[newer.index('<main'):newer.index('</main>')]
+    old_way = ("a.skip", "header.banner", "nav.toc")
+    assert kit.fingerprint(older, old_way) == kit.fingerprint(newer, old_way)
+    assert kit.fingerprint(older) != kit.fingerprint(newer)
+    with pytest.raises(ValueError):
+        kit.fingerprint(older, ("header .banner",))
+
+
 def test_identifiers_link_to_their_source_and_only_known_ones():
     refs = [{"name": "STD", "pattern": r"\b\d+\.\d+\.C\.\d{2}\b", "url": "https://std.example/doc#",
              "entries": {"1.2.C.01": {"anchor": "P-7", "level": "Must", "text": "Do the thing."}}}]

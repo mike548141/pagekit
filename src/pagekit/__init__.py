@@ -547,16 +547,39 @@ def published_of(html: str) -> str | None:
     return m.group(1) if m else None
 
 
-def fingerprint(html: str) -> str:
+#: What ``page()`` writes around the words: the masthead, the parts panel, the
+#: skip link and the part numbers. A page moved onto ``page()`` gains all of
+#: them and says nothing new.
+_FURNITURE = ("header.pk-masthead", "nav.pk-parts", "a.pk-skip", "span.pk-pn")
+
+
+def _drop_furniture(t: str, selectors: Any) -> str:
+    """Drop each element named ``tag.class`` (its first class), with what it
+    holds. Meant for elements that never hold another of their own tag."""
+    for sel in selectors:
+        tag, _, cls = sel.partition(".")
+        if not re.fullmatch(r"[a-z][a-z0-9]*", tag) or not re.fullmatch(r"[\w-]+", cls):
+            raise ValueError(f"furniture is named tag.class, not {sel!r}")
+        t = re.sub(rf'<{tag}\b[^>]*\bclass="{cls}(?:\s[^"]*)?"[^>]*>.*?</{tag}>', " ", t, flags=re.S)
+    return t
+
+
+def fingerprint(html: str, furniture: Any = ()) -> str:
     """A digest of the words a reader is given, blind to styling, scripts,
-    controls, the page language, the masthead and the published date. Two
-    versions with the same fingerprint say the same thing, so the later one
-    keeps the earlier one's published date: a change of look is not a new
-    edition."""
+    controls, the page language, the masthead, the parts panel, the part
+    numbers and the published date. Two versions with the same fingerprint say
+    the same thing, so the later one keeps the earlier one's published date: a
+    change of look is not a new edition, and nor is moving a page onto
+    ``page()``.
+
+    ``furniture`` names further elements to leave out, as ``tag.class``
+    (``"header.banner"``): the masthead and contents of pages made another
+    way, so a page moved from that way onto ``page()`` keeps its date."""
     import hashlib
     t = re.sub(r"<!--.*?-->", "", html, flags=re.S)
     for tag in ("script", "style", "button"):
         t = re.sub(rf"<{tag}\b[^>]*>.*?</{tag}>", " ", t, flags=re.S | re.I)
+    t = _drop_furniture(t, (*_FURNITURE, *furniture))
     t = re.sub(r'<div class="docmeta">.*?</div>', " ", t, flags=re.S)
     # A marking or a watermark says how to handle the words, not what they say.
     t = _MARKS.sub(" ", t)

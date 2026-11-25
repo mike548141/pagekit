@@ -81,8 +81,11 @@ or on paper, the page shows everything.
   With scripting off, or on paper, every pane shows under its heading.
 - **Published date.** `<time data-pk-published>` in a masthead is filled by
   `set_published(html, date)`. `fingerprint(html)` digests only the words a
-  reader reads (not styling, scripts, controls or spacing), so a caller can
-  keep the earlier date when only the look changed.
+  reader reads (not styling, scripts, controls, spacing, or the masthead,
+  parts panel and part numbers `page()` writes), so a caller can keep the
+  earlier date when only the look changed. `fingerprint(html, furniture)`
+  also leaves out elements named `tag.class`, so a page moved onto `page()`
+  from pages made another way keeps its date.
 - **Identifiers that explain themselves.** `link_refs(html, refsets, here)`
   turns every identifier a refset knows (a requirement number, a control
   number) into a link with a card: resting the pointer on it, or tabbing to
