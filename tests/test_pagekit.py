@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -441,3 +442,183 @@ def test_a_part_titled_with_its_own_number_keeps_it():
     plain = kit.page("Season report", parts=[{"title": "Soil", "html": "x"}, {"title": "Seeds", "html": "y"}])
     assert '<span class="pk-pn">2</span><span class="pk-pt">Seeds</span>' in plain
 
+
+
+# ── pages carry the core and only the features they use ──────────────────────
+
+_FENCE = re.compile(r"^/\* pk:feature ([a-z-]+) \*/\n(.*?)^/\* pk:end \1 \*/\n", re.S | re.M)
+
+
+def _chunks(path: Path) -> dict[str, str]:
+    src = path.read_text(encoding="utf-8")
+    out = {"core": _FENCE.sub("", src)}
+    for m in _FENCE.finditer(src):
+        out[m.group(1)] = out.get(m.group(1), "") + m.group(2)
+    return out
+
+
+def _code(js: str) -> str:
+    """Script with its comments, strings and regular expressions blanked."""
+    js = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+    js = re.sub(r"'(?:\\.|[^'\\\n])*'|\"(?:\\.|[^\"\\\n])*\"", '""', js)
+    return re.sub(r"(?<=[(,=:!&|?{};])\s*/(?![/*])(?:\\.|\[[^\]]*\]|[^/\\\n])+/[gimsuy]*", " RX", js)
+
+
+def _declared(js: str) -> set[str]:
+    """The names a part of kit.js declares at the top of the kit's scope."""
+    out = set(re.findall(r"^function ([\w$]+)\(", js, re.M))
+    for m in re.finditer(r"^var (.*?);\s*$", js, re.M):
+        depth, cur, names = 0, "", []
+        for ch in m.group(1):
+            depth += (ch in "([{") - (ch in ")]}")
+            if ch == "," and not depth:
+                names.append(cur)
+                cur = ""
+            else:
+                cur += ch
+        names.append(cur)
+        out |= {n.split("=")[0].strip() for n in names}
+    return out
+
+
+def test_every_fence_names_a_feature_or_a_shared_part():
+    known = set(kit.FEATURES) | set(kit.SHARED)
+    for name in ("kit.js", "kit.css"):
+        text = (ROOT / "src/pagekit" / name).read_text(encoding="utf-8")
+        opened = re.findall(r"^/\* pk:feature ([a-z-]+) \*/$", text, re.M)
+        closed = re.findall(r"^/\* pk:end ([a-z-]+) \*/$", text, re.M)
+        assert opened == closed and set(opened) <= known, f"{name}: fences {opened} / {closed}"
+        assert not re.search(r"^/\* pk:", _FENCE.sub("", text), re.M), f"{name}: a fence is nested or unmatched"
+    js = _chunks(ROOT / "src/pagekit/kit.js")
+    assert set(js) == {"core"} | known, "every feature and shared part has its script"
+    for f, needs in kit.FEATURES.items():
+        assert set(needs) <= set(kit.SHARED), f"{f} needs only shared parts"
+
+
+def test_no_part_of_the_kit_uses_a_name_from_a_feature_it_does_not_need():
+    """Left out of a page, a feature's names do not exist there: the core and
+    every other feature must reach it only through on() and fire()."""
+    chunks = {k: _code(v) for k, v in _chunks(ROOT / "src/pagekit/kit.js").items()}
+    declared = {k: _declared(v) for k, v in chunks.items()}
+    for k, js in chunks.items():
+        mine = {k} | (kit._with_needs([k]) if k in kit.FEATURES else set())
+        allowed = declared["core"].union(*(declared[n] for n in mine))
+        others = set().union(*(v for n, v in declared.items() if n not in mine and n != "core"))
+        used = set(re.findall(r"(?<![\w$.])([A-Za-z_$][\w$]*)\b(?!\s*:(?!:))", js))
+        bad = sorted((used & others) - allowed)
+        assert not bad, f"{k} uses {bad}, declared only in a feature it does not need"
+
+
+def test_assets_carry_everything_by_default_and_only_what_is_asked_for_otherwise():
+    css, js = kit.assets()
+    assert "@PK-KIT@" not in js and f'var KIT = "{" ".join(kit.FEATURES)}";' in js
+    assert "function initTabs(" in js and ".pk-tablist" in css
+    css0, js0 = kit.assets([])
+    assert 'var KIT = "";' in js0 and "function initTabs(" not in js0 and ".pk-tablist" not in css0
+    assert "function buildPanel(" in js0 and ".pk-panel" in css0, "the core always comes"
+    css1, js1 = kit.assets(["section-links"])
+    assert "function copyAs(" in js1 and "function initLinks(" in js1, "a feature brings the parts it needs"
+    assert "function paneShow(" not in js1 and ".pk-panehead" not in css1
+    with pytest.raises(ValueError):
+        kit.assets(["no-such-feature"])
+
+
+@pytest.mark.parametrize("feature", list(kit.FEATURES))
+def test_every_feature_alone_is_well_formed_script(feature, tmp_path):
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("no node here to parse the script; the probe runs it in real engines")
+    for names in ([], [feature]):
+        f = tmp_path / "kit.js"
+        f.write_text(kit.assets(names)[1], encoding="utf-8")
+        out = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
+        assert out.returncode == 0, out.stderr
+
+
+#: Invented markup for each feature, and markup that looks like it but is not.
+USES = {
+    "tabs": ('<div class="pk-tabs"><section class="pk-tab"><h3>A</h3></section>'
+             '<section class="pk-tab"><h3>B</h3></section></div>',
+             '<div class="pk-tabs"><section class="pk-tab"><p>one pane</p></section></div>'),
+    "long-tables": ("<table><tbody>" + "<tr><td>1</td></tr>" * 6 + "</tbody></table>",
+                    "<figure><table><tbody>" + "<tr><td>1</td></tr>" * 9 + "</tbody></table></figure>"),
+    "pinned-headings": ("<table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>",
+                        '<table data-pk="off"><thead><tr><th>a</th></tr></thead></table>'),
+    "charts": ('<svg viewBox="0 0 80 40"><line x1="0" y1="38" x2="80" y2="38"/><rect x="1" y="2" width="3" '
+               'height="4"/><rect x="5" y="6" width="7" height="8"/><rect x="9" y="1" width="2" height="3"/></svg>',
+               '<figure data-pk-motion="off"><svg viewBox="0 0 80 40"><line x1="0" y1="1" x2="9" y2="1"/>'
+               '<rect/><rect/><rect/></svg></figure>'),
+    "cards": ('<p><a class="pk-ref" href="#r1" data-pk-ref="R-1">R-1</a></p>',
+              '<div data-pk-ref="off"><p>R-1</p></div>'),
+    "copy-out": ("<table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>",
+                 '<p><a href="#x"><svg width="16" height="16" viewBox="0 0 16 16"></svg></a></p>'),
+    "copy-blocks": ("<pre>make check</pre>", "<figure><pre>a drawing in text</pre></figure>"),
+    "section-links": ("<h3>Soil</h3>", "<header><h2>Masthead</h2></header><h1>Title</h1>"),
+}
+
+
+@pytest.mark.parametrize("feature", list(USES))
+def test_a_feature_is_found_in_the_markup_and_only_there(feature):
+    yes, no = USES[feature]
+    wrap = "<!doctype html><html><head></head><body>{}</body></html>".format
+    assert feature in kit.features_needed(wrap(yes)), f"{feature} not found in {yes}"
+    assert feature not in kit.features_needed(wrap(no)), f"{feature} found in {no}"
+
+
+def test_a_page_carries_only_the_features_its_content_uses():
+    small = kit.page("A walk", body="<h2>Start</h2><p>At the wharf.</p><h2>Finish</h2><p>At the point.</p>")
+    assert kit.features_carried(small) == ["section-links"]
+    assert "function initTabs(" not in small and "function initCopy(" not in small
+    assert "function buildPanel(" in small and kit.check(small) == []
+    every = kit.page("Everything", body="".join(y for y, _ in USES.values()))
+    assert kit.features_carried(every) == list(kit.FEATURES), "a page using every feature carries every feature"
+    assert len(small) < len(every) - 30_000
+
+
+def test_a_page_can_name_features_its_markup_does_not_show_and_keeps_them():
+    out = kit.page("A walk", body="<p>Filled in later.</p>", features=["tabs"])
+    assert '<meta name="pk-features" content="tabs">' in out
+    assert kit.features_carried(out) == ["tabs"]
+    again = kit.apply(out)
+    assert kit.features_carried(again) == ["tabs"] and kit.apply(again) == again, "re-applying keeps the names"
+    assert kit.features_carried(kit.page("All", body="<p>x</p>", features="all")) == list(kit.FEATURES)
+    with pytest.raises(ValueError):
+        kit.page("A walk", body="<p>x</p>", features=["sparkles"])
+
+
+def test_a_page_running_its_own_script_carries_everything_unless_it_names_its_features():
+    own = "<!doctype html><html><head></head><body><p>x</p><script>document.title = 'y';</script></body></html>"
+    assert kit.features_carried(kit.apply(own)) == list(kit.FEATURES)
+    named = kit.apply(own, features=())
+    assert kit.features_carried(named) == [] and '<meta name="pk-features" content="">' in named
+    data = '<html><body><script type="application/json" id="x">{}</script><p>x</p></body></html>'
+    assert kit.features_carried(kit.apply(data)) == [], "a data block is not a script"
+
+
+def test_linking_identifiers_after_the_build_brings_the_cards_in():
+    built = kit.page("Rules", body="<p>See REF-1 for the rule.</p>")
+    assert "cards" not in kit.features_carried(built)
+    ref = {"name": "Rule", "pattern": r"REF-\d+", "url": "https://example.org/r#",
+           "entries": {"REF-1": {"anchor": "r1", "title": "Keep gates shut"}}}
+    out = kit.link_refs(built, [ref])
+    assert "cards" in kit.features_carried(out) and "function openPane(" in out
+    assert kit.link_refs(out, [ref]) == out
+
+
+def test_refit_brings_a_changed_page_up_to_date():
+    built = kit.page("Rules", body="<p>None yet.</p>")
+    grown = built.replace("<p>None yet.</p>", "<pre>make check</pre>")
+    assert "copy-blocks" not in kit.features_carried(grown)
+    out = kit.refit(grown)
+    assert "copy-blocks" in kit.features_carried(out) and kit.refit(out) == out
+    assert kit.refit("<html><body><pre>x</pre></body></html>") == "<html><body><pre>x</pre></body></html>"
+
+
+def test_the_small_page_builds_and_carries_only_some_features(tmp_path):
+    dest = tmp_path / "small.html"
+    out = subprocess.run([sys.executable, str(ROOT / "examples/small.py"), "-o", str(dest)],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout + out.stderr
+    text = dest.read_text(encoding="utf-8")
+    carried = kit.features_carried(text)
+    assert carried and set(carried) < set(kit.FEATURES), "the probe's page with only some features"

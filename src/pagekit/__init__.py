@@ -10,6 +10,9 @@ Two ways in:
 * ``apply(html)`` adds the reader features alone to a page made some other
   way, so older pages gain them without being rebuilt.
 
+Either way a page carries the kit's core and only the optional features its
+content uses (``FEATURES``, found by ``features_needed``).
+
 ``check(html)`` reports anything that would stop a page travelling as one
 file: an external script, style, font or picture, a missing or late character
 set, a missing language, text that is not in composed Unicode form (macrons
@@ -37,6 +40,7 @@ import re
 import sys
 import unicodedata
 from collections.abc import Iterable, Sequence
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -242,11 +246,315 @@ def _read(name: str) -> str:
     return (HERE / name).read_text(encoding="utf-8")
 
 
-def assets() -> tuple[str, str]:
-    """The reader features' stylesheet and script, as text, without their
-    comments: those are for whoever maintains the kit, and a page is for its
-    reader (a comment ships to anyone who views the source)."""
-    return _read("kit.css"), _strip_js_comments(_read("kit.js"))
+def assets(features: Iterable[str] | None = None) -> tuple[str, str]:
+    """The reader features' stylesheet and script, as text; the script
+    without its comments, which are for whoever maintains the kit, while a
+    page is for its reader (a comment ships to anyone who views the source).
+
+    ``features`` names the optional features to carry (`FEATURES`), with the
+    parts they share; the core always comes. ``None`` carries every one."""
+    keep = set(FEATURES) | set(SHARED) if features is None else _with_needs(features)
+    css = _select(_read("kit.css"), keep)
+    js = _select(_read("kit.js"), keep)
+    carried = " ".join(f for f in FEATURES if f in keep)
+    if js.count(_KIT_SLOT) != 1:
+        raise ValueError("kit.js must hold the KIT slot exactly once")
+    return css, _strip_js_comments(js.replace(_KIT_SLOT, f'"{carried}"'))
+
+
+# ── features: every page carries the core, and only the features it uses ────
+
+#: The reader features a page carries only when it uses them, each with the
+#: shared parts it needs. Everything else in the kit is the core, which every
+#: page carries because it is what makes any page readable: the panel with its
+#: search and contents, parts, links that land, light and dark, markings and
+#: watermarks, print. A feature is found in the page's own markup while the
+#: page is built (`features_needed`); nobody keeps a list per page.
+FEATURES: dict[str, tuple[str, ...]] = {
+    "tabs": (),
+    "long-tables": ("cells",),
+    "pinned-headings": (),
+    "charts": (),
+    "cards": ("pane",),
+    "copy-out": ("cells", "pane", "clipboard"),
+    "copy-blocks": ("clipboard",),
+    "section-links": ("clipboard",),
+}
+#: Parts that several features use: a table's cells read as text, the side
+#: pane, and the copy command with its notice. Each comes in once, with
+#: whichever feature needs it first, and never on its own.
+SHARED = ("cells", "pane", "clipboard")
+#: A page can name features its markup does not show (content its own script
+#: adds after the build): ``<meta name="pk-features" content="tabs charts">``,
+#: or ``content="all"``. Written by ``page(features=)`` and ``apply(features=)``.
+FEATURES_META = "pk-features"
+
+_KIT_SLOT = '"@PK-KIT@"'
+_FENCE = re.compile(r"^/\* pk:feature ([a-z-]+) \*/\n(.*?)^/\* pk:end \1 \*/\n", re.S | re.M)
+
+
+def _with_needs(features: Iterable[str]) -> set[str]:
+    names = set(features)
+    if "all" in names:
+        return set(FEATURES) | set(SHARED)
+    unknown = names - set(FEATURES)
+    if unknown:
+        raise ValueError(f"no such feature: {', '.join(sorted(unknown))} (known: {', '.join(FEATURES)})")
+    return names | {n for f in names for n in FEATURES[f]}
+
+
+def _select(text: str, keep: set[str]) -> str:
+    """``text`` (kit.js or kit.css) with the fenced parts not in ``keep`` left out."""
+    def one(m: re.Match) -> str:
+        if m.group(1) not in FEATURES and m.group(1) not in SHARED:
+            raise ValueError(f"a fence names no feature: {m.group(1)!r}")
+        return m.group(2) if m.group(1) in keep else ""
+    out = _FENCE.sub(one, text)
+    if re.search(r"^/\* pk:(?:feature|end)\b", out, re.M):
+        raise ValueError("a feature fence is unclosed, mismatched or nested")
+    return out
+
+
+#: What a copy button never sits in or on (kit.js COPY_OFF), what a section
+#: link never goes on (LINK_OFF) and what a block's copy button skips
+#: (BLOCKCOPY_OFF): each as (tag names, classes, attribute=value pairs).
+_COPY_OFF = ({"button", "a"}, {"pk-panel", "pk-pane", "pk-float", "pk-copymenu"},
+             {("data-pk-copy", "off"), ("data-pk", "off")})
+_LINK_OFF = ({"header", "nav", "button", "a", "figure"},
+             {"pk-panel", "pk-pane", "pk-float", "pk-copymenu", "pk-partnav", "pane", "toolbar"},
+             {("data-pk-link", "off"), ("role", "dialog")})
+_BLOCK_OFF = (_COPY_OFF[0] | {"figure", "table", "header", "nav"}, _COPY_OFF[1] | {"pane", "toolbar"},
+              _COPY_OFF[2] | {("role", "dialog")})
+_VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+              "source", "track", "wbr"}
+_SCRIPT_TYPES = {"", "text/javascript", "module", "application/javascript", "application/ecmascript",
+                 "text/ecmascript"}
+
+
+class _Uses(HTMLParser):
+    """Reads a page's markup for the features it uses. It errs towards a
+    feature: what the kit would find in the browser is a subset of what this
+    reports (the probe checks that in real engines)."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.found: set[str] = set()
+        self.named: str | None = None
+        self.own_script = False
+        self.motion_off = False
+        self.stack: list[tuple[str, dict[str, str], set[str], dict[str, Any]]] = []
+
+    def _off(self, rule: tuple[set[str], set[str], set[tuple[str, str]]],
+             tag: str, a: dict[str, str], cls: set[str]) -> bool:
+        tags, classes, attrs = rule
+        for t, at, c, _ in [*self.stack, (tag, a, cls, {})]:
+            if t in tags or c & classes or any(at.get(k) == v for k, v in attrs):
+                return True
+        return False
+
+    def _inside(self, tag: str) -> dict[str, Any] | None:
+        for t, _, _, rec in reversed(self.stack):
+            if t == tag:
+                return rec
+        return None
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._start(tag, attrs)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        rec = self._start(tag, attrs)
+        if tag not in _VOID_TAGS:
+            a = {k: v or "" for k, v in attrs}
+            self.stack.append((tag, a, set(a.get("class", "").split()), rec))
+
+    def _start(self, tag: str, attrs: list[tuple[str, str | None]]) -> dict[str, Any]:
+        a = {k: v or "" for k, v in attrs}
+        cls = set(a.get("class", "").split())
+        rec: dict[str, Any] = {}
+        if tag == "meta" and a.get("name") == FEATURES_META:
+            self.named = a.get("content", "")
+        elif tag == "html" and a.get("data-pk-motion") == "off":
+            self.motion_off = True
+        elif tag == "script":
+            if a.get("id") == REFDATA_ID:
+                self.found.add("cards")
+            elif a.get("id") not in (JS_ID, PREPAINT_ID) and a.get("type", "").lower() in _SCRIPT_TYPES:
+                self.own_script = True
+        elif tag == "table":
+            rec.update(kind="table", body=0, head=0, wide=False, fills=False, nested=bool(self._inside("table")),
+                       skip=self._off(({"figure"}, set(), {("data-pk", "off")}), tag, a, cls),
+                       copy_off=self._off(_COPY_OFF, tag, a, cls), preview=a.get("data-pk-preview", ""))
+        elif tag == "tr" and (t := self._inside("table")) is not None:
+            if self._inside_after("thead", "table"):
+                t["head"] += 1
+            elif not self._inside_after("tfoot", "table"):
+                t["body"] += 1
+            t["cells"] = 0
+        elif tag in ("td", "th") and (t := self._inside("table")) is not None:
+            t["cells"] = t.get("cells", 0) + 1
+            t["wide"] = t["wide"] or t["cells"] >= 2
+        elif tag == "svg":
+            outer = self._inside("svg")
+            if outer is None:
+                w, h = a.get("width", ""), a.get("height", "")
+                least = _diagram_size()
+                small = w.isdigit() and h.isdigit() and (int(w) < least[0] or int(h) < least[1])
+                vb = a.get("viewbox", "").replace(",", " ").split()
+                rec.update(kind="svg", rects=0, lines=0, small=small,
+                           box=len(vb) == 4 and all(_is_num(x) for x in vb) and float(vb[2]) > 0,
+                           copy_off=self._off(_COPY_OFF, tag, a, cls),
+                           still=self._off(({"button"}, {"pk-panel", "pk-float"}, {("data-pk-motion", "off")}),
+                                           tag, a, cls))
+        elif tag in ("rect", "line"):
+            for t2, _, _, r in self.stack:
+                if t2 == "svg" and r.get("kind") == "svg":
+                    r["rects" if tag == "rect" else "lines"] += 1
+        if "cbarfill" in cls and (t := self._inside("table")) is not None:
+            if not self._off((set(), {"pk-float"}, {("data-pk-motion", "off")}), tag, a, cls):
+                t["fills"] = True
+        if tag in ("h2", "h3", "h4", "summary") and not self._off(_LINK_OFF, tag, a, cls):
+            self.found.add("section-links")
+        if (tag == "pre" or "pk-message" in cls or "data-pk-copy-label" in a) and not self._off(_BLOCK_OFF, tag, a, cls):
+            self.found.add("copy-blocks")
+        if tag == "a" and "pk-ref" in cls and a.get("data-pk-ref", "off") != "off":
+            self.found.add("cards")
+        if "pk-tabs" in cls:
+            rec.update(kind="tabs", panes=0)
+        if "pk-tab" in cls and self.stack and self.stack[-1][3].get("kind") == "tabs":
+            self.stack[-1][3]["panes"] += 1
+        return rec
+
+    def _inside_after(self, inner: str, outer: str) -> bool:
+        """Whether the nearest ``inner`` sits inside the nearest ``outer``."""
+        for t, *_ in reversed(self.stack):
+            if t == inner:
+                return True
+            if t == outer:
+                return False
+        return False
+
+    def handle_endtag(self, tag: str) -> None:
+        if not any(t == tag for t, *_ in self.stack):
+            return
+        while self.stack:
+            t, _, _, rec = self.stack.pop()
+            self._done(rec)
+            if t == tag:
+                return
+
+    def close(self) -> None:
+        super().close()
+        while self.stack:
+            self._done(self.stack.pop()[3])
+
+    def _done(self, rec: dict[str, Any]) -> None:
+        kind = rec.get("kind")
+        if kind == "table":
+            if not rec["skip"] and rec["body"] >= 6 and rec["preview"] != "all":
+                self.found.add("long-tables")
+            if not rec["skip"] and rec["head"]:
+                self.found.add("pinned-headings")
+            if not rec["copy_off"] and not rec["nested"] and rec["body"] + rec["head"] >= 2 and rec["wide"]:
+                self.found.add("copy-out")
+            if rec["fills"] and not self.motion_off:
+                self.found.add("charts")
+        elif kind == "svg":
+            if not rec["copy_off"] and not rec["small"]:
+                self.found.add("copy-out")
+            if rec["box"] and rec["rects"] >= 3 and rec["lines"] and not rec["still"] and not self.motion_off:
+                self.found.add("charts")
+        elif kind == "tabs" and rec["panes"] >= 2:
+            self.found.add("tabs")
+
+
+def _diagram_size() -> tuple[int, int]:
+    """The smallest width and height a drawing needs to earn a copy button,
+    read from kit.js itself so the builder and the page cannot disagree."""
+    m = re.search(r"return w >= (\d+) && h >= (\d+);", _read("kit.js"))
+    if not m:
+        raise ValueError("kit.js no longer says how big a drawing must be to copy")
+    return int(m.group(1)), int(m.group(2))
+
+
+def _is_num(x: str) -> bool:
+    try:
+        float(x)
+    except ValueError:
+        return False
+    return True
+
+
+def features_needed(html: str) -> list[str]:
+    """The optional features ``html`` uses, in `FEATURES` order: what its
+    markup holds (a long table, a tab set, a chart, a block to copy, a heading
+    to link to, an identifier with a card), plus any it names in
+    ``<meta name="pk-features">``. A page that runs a script of its own and
+    names none gets every feature, because its script may add content the
+    markup does not show; naming them (even none) turns that off."""
+    p = _Uses()
+    p.feed(_drop(_drop(_drop(html, "style", CSS_ID), "script", JS_ID), "script", PREPAINT_ID))
+    p.close()
+    found = set(p.found)
+    if p.named is not None:
+        found |= _with_needs(p.named.split()) & set(FEATURES)
+    elif p.own_script:
+        found = set(FEATURES)
+    return [f for f in FEATURES if f in found]
+
+
+def features_carried(html: str) -> list[str] | None:
+    """The optional features the kit in ``html`` carries, or ``None`` when it
+    carries no kit. A kit from before features were optional carries all."""
+    m = re.search(r'<script id="pagekit-js">(.*?)</script>', html, re.S)
+    if not m:
+        return None
+    k = re.search(r'\bvar KIT = "([^"]*)";', m.group(1))
+    return list(FEATURES) if not k else [f for f in FEATURES if f in k.group(1).split()]
+
+
+def _named_tag(features: Iterable[str] | str) -> str:
+    """The ``pk-features`` meta naming ``features`` (each checked)."""
+    names = [features] if isinstance(features, str) else list(features)
+    _with_needs(names)
+    return f'<meta name="{FEATURES_META}" content="{esc(" ".join(names))}">\n'
+
+
+def _set_named(html: str, features: Iterable[str] | str | None) -> str:
+    """``html`` naming ``features`` in its ``pk-features`` meta (replaced
+    where it stands). ``None`` leaves the page as it is."""
+    if features is None:
+        return html
+    tag = _named_tag(features)
+    old = re.search(rf'<meta name="{FEATURES_META}" content="[^"]*">\n?', html)
+    if old:
+        return html[:old.start()] + tag + html[old.end():]
+    at = (re.search(r'<script id="pagekit-prepaint">.*?</script>\n?', html, re.S)
+          or re.search(r"<meta\s+charset=[^>]*>\n?", html, re.I))
+    if at:
+        return html[:at.end()] + tag + html[at.end():]
+    hd = re.search(r"<head\b[^>]*>\n?", html, re.I)
+    return html[:hd.end()] + tag + html[hd.end():] if hd else tag + html
+
+
+def _fit(html: str, features: Iterable[str]) -> str:
+    """``html`` with its kit (styles and script) rewritten to carry exactly
+    ``features`` and what they need. A page without the kit is unchanged."""
+    css, js = assets(features)
+    html = re.sub(r'(<style id="pagekit-css">\n).*?(</style>)',
+                  lambda m: m.group(1) + _strip_comments(css) + m.group(2), html, count=1, flags=re.S)
+    return re.sub(r'(<script id="pagekit-js">\n).*?(</script>)',
+                  lambda m: m.group(1) + js + m.group(2), html, count=1, flags=re.S)
+
+
+def refit(html: str, features: Iterable[str] | str | None = None) -> str:
+    """``html`` whose kit carries what the page now uses: for a page changed
+    after it was built (content added, say). ``features`` also names any its
+    markup does not show, as in `page`. A page without the kit is unchanged.
+    `link_refs`, `link_sources` and `link_terms` do this themselves."""
+    html = _set_named(html, features)
+    if features_carried(html) is None:
+        return html
+    return _fit(html, features_needed(html))
 
 
 def _strip_js_comments(js: str) -> str:
@@ -365,16 +673,22 @@ def mark_parts(html: str, cls: str) -> str:
     return "".join(out) + html[at:]
 
 
-def apply(html: str, lang: str | None = None) -> str:
+def apply(html: str, lang: str | None = None, features: Iterable[str] | str | None = None) -> str:
     """``html`` with the reader features inlined: their CSS last in the head
     (so it builds on the page's own tokens) and their script last in the
-    body. Idempotent. ``lang`` sets the page's language when given."""
-    css, js = assets()
+    body. Idempotent. ``lang`` sets the page's language when given.
+
+    The page carries the core and the features it uses (`features_needed`).
+    ``features`` names more, for content added after the build, or ``"all"``;
+    the names are kept in the page, so applying the kit again keeps them. A
+    page that runs a script of its own and names none carries every feature."""
     html = nfc(html)
     html = _drop(_drop(_drop(html, "style", CSS_ID), "script", JS_ID), "script", PREPAINT_ID)
     if lang:
         html = _set_lang(html, lang)
     html = anchor_headings(html)
+    html = _set_named(html, features)
+    css, js = assets(features_needed(html))
     # A reader's light or dark choice is put back before first paint, so a
     # page never flashes the other scheme. It goes straight after the
     # character set, which must stay within the first 1,024 bytes.
@@ -741,6 +1055,10 @@ def _write_refdata(html: str, used: dict[str, dict]) -> str:
         if i < 0:
             i = html.rfind("</body>")
         html = html[:i] + block + html[i:] if i >= 0 else html + block
+        # A page built before its identifiers were linked brings the cards in.
+        carried = features_carried(html)
+        if carried is not None and "cards" not in carried:
+            html = _fit(html, [*carried, "cards"])
     return html
 
 
@@ -979,7 +1297,8 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
          byline: str = "", meta: Sequence[str] = (), footer: str = "",
          lang: str = "en-NZ", logo: str | None = None, description: str = "",
          head_extra: str = "", body_extra: str = "", prose: bool = True,
-         published: Any = None, marking: str = "", watermark: str = "") -> str:
+         published: Any = None, marking: str = "", watermark: str = "",
+         features: Iterable[str] | str | None = None) -> str:
     """One self-contained HTML document.
 
     ``parts`` is a list of ``{"id", "title", "summary", "html"}``; with two or
@@ -990,13 +1309,18 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
     ``body_extra``, which are written as given; every other argument is plain
     text and is escaped here. ``marking`` (a
     New Zealand classification, e.g. ``IN-CONFIDENCE``) and ``watermark``
-    (e.g. ``DRAFT``) are set per document; see `set_marks`."""
+    (e.g. ``DRAFT``) are set per document; see `set_marks`.
+
+    The page carries the core and only the features its content uses
+    (`features_needed`); ``features`` names more, for content added after
+    the build, or ``"all"``. Identifiers, sources and terms linked later
+    (`link_refs`, `link_sources`, `link_terms`) bring their feature with them,
+    and `refit` brings a page's kit up to date after any other change."""
     b = brand or NEUTRAL_BRAND
     logo = logo if logo is not None else logo_uri(b.get("logo"))
     name, alt = b.get("name") or "", b.get("name_alt") or b.get("name_te_reo") or ""
     alt_lang = b.get("name_alt_lang") or ("mi" if b.get("name_te_reo") else "")
     base_css = _strip_comments(_read("base.css"))
-    kit_css, kit_js = assets()
 
     mark = ""
     if logo:
@@ -1069,6 +1393,8 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
     foot = ('<footer class="pk-footer" role="contentinfo"><div class="pk-wrap">'
             + (footer or (esc(name) if name else "")) + "</div></footer>")
     desc = f'<meta name="description" content="{esc(description)}">' if description else ""
+    if features is not None:
+        desc += _named_tag(features)
     doc = (
         "<!DOCTYPE html>\n"
         f'<html lang="{esc(lang)}">\n<head>\n<meta charset="utf-8">\n'
@@ -1078,11 +1404,12 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
         f'<script id="{PREPAINT_ID}">{PREPAINT}</script>\n'
         f'<style id="{TOKENS_ID}">\n{tokens_css(b)}</style>\n'
         f'<style id="{BASE_ID}">\n{base_css}</style>\n'
-        f'<style id="{CSS_ID}">\n{_strip_comments(kit_css)}</style>\n'
+        f'<style id="{CSS_ID}">\n</style>\n'
         f"{head_extra}</head>\n<body>\n"
         '<a class="pk-skip" href="#pk-main">Skip to the content</a>\n'
         f"{masthead}\n{hero}\n{content}\n{foot}\n{body_extra}"
-        f'<script id="{JS_ID}">\n{kit_js}</script>\n</body>\n</html>\n')
+        f'<script id="{JS_ID}">\n</script>\n</body>\n</html>\n')
+    doc = _fit(doc, features_needed(doc))
     doc = nfc(doc)
     doc = set_marks(doc, marking, watermark)
     return set_published(doc, published) if published else doc

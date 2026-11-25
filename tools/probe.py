@@ -26,6 +26,12 @@ section (by real clicks and keys), defined terms, a link arriving
 into a closed section, the theme switch, reduced motion, print) and checks each did what
 it should. Screenshots go to ``--shots``.
 
+A page carries the kit's core and only the features it uses, so the probe
+also loads it a second time with every feature put back, and fails if the
+whole kit does something there that the page's own kit cannot: a feature the
+page uses whose code was left out. Each feature the page carries must do there
+what it does with the whole kit.
+
 Needs Playwright (``python3 -m playwright``). On a machine whose browser
 cache is newer than the library, pass the engines' paths with
 ``--chromium`` / ``--webkit``.
@@ -41,6 +47,9 @@ import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+import pagekit  # noqa: E402
 
 CACHE = Path.home() / "Library/Caches/ms-playwright"
 SANDBOX = "allow-scripts allow-forms"
@@ -209,6 +218,55 @@ async () => {
   return out;
 }
 """
+
+# What each optional feature leaves on a page when it acts, read once every
+# fold is open and every part shown. An identifier's card has no mark of its
+# own once its title has moved, so a page whose identifiers carry no title is
+# taken to use the cards when it holds their data.
+FOOTPRINT = r"""async () => {
+  const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  d.querySelectorAll('details').forEach(x => { x.open = true; });
+  const all = d.querySelector('.pk-allbtn');
+  if (all && !d.documentElement.classList.contains('pk-all')) all.click();
+  await wait(500);
+  const has = s => !!d.querySelector(s);
+  const marks = {'tabs': '.pk-tablist', 'long-tables': '.pk-morebar', 'pinned-headings': '.pk-float',
+    'charts': '.pk-mo', 'copy-out': '.pk-copybtn', 'copy-blocks': '.pk-blockcopy', 'section-links': '.pk-linkbtn',
+    'cards': 'a.pk-ref[data-pk-title]'};
+  const acted = Object.keys(marks).filter(k => has(marks[k]));
+  if (!acted.includes('cards') && has('#pk-refdata') && has('a.pk-ref[data-pk-ref]') && !has('a.pk-ref[title]'))
+    acted.push('cards');
+  return {kit: d.documentElement.getAttribute('data-pk-kit'), acted};
+}"""
+
+
+def feature_checks(browser, html: str, errors: list) -> list:
+    """The page as built, beside the same page with every feature put back."""
+    carried = pagekit.features_carried(html)
+    if carried is None:
+        return []
+    seen = {}
+    for name, doc in (("built", html), ("whole", pagekit._fit(html, pagekit.FEATURES))):
+        ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+        pg = ctx.new_page()
+        pg.on("pageerror", lambda e, n=name: errors.append(f"({n}) {e}"))
+        pg.set_content(doc)
+        pg.wait_for_timeout(500)
+        seen[name] = pg.evaluate(FOOTPRINT)
+        ctx.close()
+    uses = [f for f in pagekit.FEATURES if f in seen["whole"]["acted"]]
+    left_out = [f for f in uses if f not in carried]
+    built = [f for f in pagekit.FEATURES if f in seen["built"]["acted"]]
+    return [
+        ["the page carries every feature it uses", not left_out,
+         ("left out: " + ", ".join(left_out) + "; " if left_out else "") + "uses " + (", ".join(uses) or "none")
+         + "; carries " + (", ".join(carried) or "none")],
+        ["the page's own kit says what it carries", (seen["built"]["kit"] or "").split() == carried,
+         seen["built"]["kit"] or ""],
+        ["each feature carried acts as it does with the whole kit", built == [f for f in uses if f in carried],
+         "acted: " + (", ".join(built) or "none")],
+    ]
+
 
 PRINT_CHECK = r"""() => [...document.querySelectorAll('.pk-part, .pk-tab')].map(p => p.getBoundingClientRect().height > 0)
   .concat([...document.querySelectorAll('tr.pk-more')].slice(0, 50).map(r => r.getClientRects().length > 0))
@@ -687,6 +745,11 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
     results = []
     with sync_playwright() as p:
         for name, browser in engines(p, chromium, webkit):
+            ferrs: list[str] = []
+            fc = feature_checks(browser, html, ferrs)
+            if fc:
+                results.append({"engine": name, "version": browser.version, "width": 1440,
+                                "mode": "features", "errors": ferrs, "checks": fc})
             for width, height in ((1440, 900), (390, 844)):
                 for mode in ("direct", "sandboxed", "viewer", "srcdoc"):
                     ctx = browser.new_context(viewport={"width": width, "height": height})

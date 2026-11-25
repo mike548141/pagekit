@@ -22,11 +22,13 @@ python3 -m pagekit apply PAGE.html -o OUT.html --lang en-NZ
 | A page made another way | `pagekit.apply(html, "en-NZ")` | That page plus the features |
 | Several existing pages to join | `pagekit.compose(title, [{"html", "title"}, …], brand=…)` | One page, one part per page; each keeps its own styles, scoped to its part with CSS `@scope` |
 | Any page | `pagekit.check(html)` / `python3 -m pagekit check PAGE…` | What would stop it travelling as one file: anything it loads or sends from outside itself in its markup (scripts, styles, fonts, pictures, embedded objects, a base address, a meta refresh, network hints, form actions, link pings). It does not read what a page's own script fetches |
-| Any page | `python3 tools/probe.py PAGE… [--shots DIR]` (needs Playwright) | Every feature exercised in Chromium and WebKit, four ways each (below) |
+| Any page | `python3 tools/probe.py PAGE… [--shots DIR]` (needs Playwright) | Every feature exercised in Chromium and WebKit, four ways each (below), and a check that the page carries every feature it uses |
+| A page changed after it was built | `pagekit.refit(html)` | Its kit brought up to date with what the page now uses |
 
 `examples/sample.py` builds `examples/sample.html`: every feature on invented
 content (a community garden's season report). Open it to see the kit, or use it to test a
-hosting route.
+hosting route. `examples/small.py` builds `examples/small.html` on demand, a
+short page that uses only some features.
 
 ## The brand
 
@@ -48,6 +50,20 @@ enough where it does not. `contrast_failures(tokens(brand))` must be empty.
 Written for a laptop or desktop screen of 13" or more; a phone or tablet
 gets a working fallback. Every feature is an enhancement: with scripting off,
 or on paper, the page shows everything.
+
+**A page carries only the features it uses.** Every page carries the core:
+the panel with its search and contents, parts, links that land, light and
+dark, markings and watermarks, print. The other features (`pagekit.FEATURES`:
+tabs, long tables, pinned headings, charts, cards for identifiers and terms,
+copying a table or diagram, copying a block, a link to any section) go into a
+page only when its markup uses them, found while the page is built
+(`features_needed(html)`); nobody keeps a list. A page names any its markup
+does not show (content its own script adds later) with `page(features=…)` or
+`apply(html, features=…)`, or `"all"`; the names are kept in the page as
+`<meta name="pk-features">`. A page that runs a script of its own and names
+none carries every feature. `link_refs`, `link_sources` and `link_terms` bring
+the cards with them; after any other change, `refit(html)`. The design, and how
+to add a feature, are in `docs/optional-features.md`.
 
 - **The panel**, down the left of every page with sections: a search over the
   whole document (hidden parts, collapsed rows and closed sections included),
@@ -216,6 +232,12 @@ The probe uses Playwright's builds of both, not the installed browsers.
   (`grep -n "function name(" src/pagekit/kit.js`). A second `say()` once
   silently replaced one feature's screen-reader announcement with another's
   on-screen notice.
+- An optional feature lives between `pk:feature NAME` and `pk:end NAME` lines
+  in `kit.js` and `kit.css`, and is named in `FEATURES` with a detector in
+  `_Uses`. Nothing outside it may call its functions, because on a page that
+  does not use it they do not exist: it lends its behaviour with `on(moment,
+  fn)` and the core asks with `fire(moment)`. A test fails on any name used
+  across that line.
 - Never write a link as text inside the script (`'<a href="' + …`): a link
   checker reading a page may take any `href="` in it as one of the page's own.
   Build it through the DOM (`el("a")`, `setAttribute("href", …)`, `outerHTML`).

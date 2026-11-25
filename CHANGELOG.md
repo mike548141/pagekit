@@ -52,3 +52,22 @@
 - A part titled "Part 2 · Costs" keeps its own number in the parts panel and
   the contents; beside such parts, a part with no number of its own is shown
   unnumbered rather than out of step.
+- A page carries the kit's core and only the features it uses. Tabs, long
+  tables, pinned headings, charts, cards, copying a table or diagram, copying
+  a block and section links (`FEATURES`) go into a page only when its markup
+  uses them (`features_needed`), with the parts they share (cells, the side
+  pane, the copy command) included once. `page(features=)` and
+  `apply(features=)` name more, kept in the page as `<meta name="pk-features">`;
+  a page running a script of its own and naming none carries every feature.
+  `link_refs`, `link_sources` and `link_terms` bring the cards with them, and
+  `refit` brings any other changed page up to date. `assets()` with no
+  argument still returns the whole kit. `features_carried` reads what a page
+  carries.
+- A link to a row of a long table in a part or tab not on screen now shows
+  the part, then the tab, then opens the table; the find shortcut opens long
+  tables after showing every part and tab, so a table that can only be
+  measured once its part or tab shows is opened after it is measured.
+- `tools/probe.py` loads each page again with every feature put back, and
+  fails when the page uses a feature whose code was left out, or a feature it
+  carries does not act as it does with the whole kit.
+- `examples/small.py` builds a short page that uses only some features.

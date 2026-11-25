@@ -15,32 +15,14 @@ a[data-pk-href] { cursor: pointer; }
 .pk-prose a[data-pk-href] { text-decoration: underline; text-underline-offset: .15em; }
 .pk-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 
-/* ── long tables: the rows beyond the preview, and the control ──────────── */
-table.pk-collapsed tr.pk-more { display: none; }
-/* The last row shown fades a little, so the cut reads as "there is more". */
-table.pk-collapsed tr.pk-edge > * {
-  -webkit-mask-image: linear-gradient(to bottom, #000 40%, rgba(0,0,0,.35));
-          mask-image: linear-gradient(to bottom, #000 40%, rgba(0,0,0,.35));
-}
-.pk-morebar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; margin: .35rem 0 1.25rem; }
-.pk-morebtn, .pk-btn {
+.pk-btn, .pk-morebtn {
   font: inherit; font-size: .9rem; font-weight: 600; line-height: 1.3;
   color: var(--pk-accent); background: var(--pk-surface);
   border: 1px solid var(--pk-line); border-radius: 999px;
   padding: .35rem .95rem; cursor: pointer; min-height: 36px;
 }
-.pk-morebtn::after { content: " \25BE"; }
-.pk-morebtn[aria-expanded="true"]::after { content: " \25B4"; }
-.pk-morebtn:hover, .pk-btn:hover { border-color: var(--pk-solid); }
-.pk-morebtn:focus-visible, .pk-btn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
-.pk-morenote { font-size: .85rem; color: var(--pk-muted); }
-
-/* ── table headings that stay in view ───────────────────────────────────── */
-.pk-float {
-  position: fixed; z-index: 4; display: none; overflow: hidden;
-  pointer-events: none; box-shadow: 0 2px 4px -2px rgba(0,0,0,.25);
-}
-.pk-float table { table-layout: fixed; border-collapse: collapse; margin: 0; }
+.pk-btn:hover, .pk-morebtn:hover { border-color: var(--pk-solid); }
+.pk-btn:focus-visible, .pk-morebtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
 
 /* ── parts: the no-script contents list, and the part furniture ────────── */
 .pk-parts ol { list-style: none; margin: 0; padding: 0; }
@@ -139,78 +121,6 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
   .pk-paneled body { padding-top: 46px; }
 }
 
-/* ── charts draw themselves when they come into view ───────────────────── */
-.pk-mo .pk-bar { transform-box: view-box; transform-origin: 50% 100%; transform: scaleY(0); }
-.pk-mo .pk-tbar { transform-box: fill-box; transform-origin: 0 50%; transform: scaleX(0); }
-.pk-mo .cbarfill { transform-origin: 0 50%; transform: scaleX(0); }
-.pk-mo .pk-mlab { opacity: 0; }
-.pk-mo.pk-in .pk-bar, .pk-mo.pk-in .pk-tbar, .pk-mo.pk-in .cbarfill {
-  transform: none; transition: transform .8s cubic-bezier(.2,.8,.2,1) var(--pk-d, 0s); }
-.pk-mo.pk-in .pk-mlab { opacity: 1; transition: opacity .4s ease var(--pk-d, 0s); }
-
-/* ── identifiers: a card on hover, the whole entry in a pane ─────────────── */
-a.pk-ref[data-pk-ref] { text-decoration-style: dotted; text-underline-offset: 3px; cursor: help; }
-/* a defined term reads as part of the sentence: the text's own colour, a dotted line under it */
-a.pk-term[data-pk-ref], .pk-prose a.pk-term[data-pk-ref] { color: inherit; text-decoration: underline dotted; text-decoration-color: var(--pk-muted); text-underline-offset: 3px; }
-a.pk-term[data-pk-ref]:hover { text-decoration-color: var(--pk-solid); }
-.pk-tip { display: none; position: fixed; z-index: 50; max-width: 380px; box-sizing: border-box; padding: 10px 12px;
-  background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; line-height: 1.4; pointer-events: none; }
-.pk-tiphead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.pk-tipsrc { color: var(--pk-muted); font-size: 12.5px; }
-.pk-tiphint { margin-top: 6px; color: var(--pk-muted); font-size: 12.5px; }
-.pk-lvl { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 99px;
-  color: var(--pk-accent); border: 1px solid var(--pk-solid); }
-.pk-pane { position: fixed; top: 0; right: 0; bottom: 0; z-index: 45; width: min(460px, 92vw); box-sizing: border-box;
-  display: flex; flex-direction: column; background: var(--pk-surface); color: var(--pk-ink);
-  border-left: 1px solid var(--pk-line); box-shadow: -8px 0 28px rgba(0,0,0,.18);
-  transform: translateX(104%); transition: transform .18s ease; visibility: hidden; outline: none; }
-.pk-paneopen .pk-pane { transform: none; visibility: visible; }
-.pk-panehead { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--pk-line); }
-.pk-paneid { font-weight: 700; font-size: 16px; }
-.pk-paneclose { margin-left: auto; font: inherit; font-size: 24px; line-height: 1; width: 34px; height: 34px; border-radius: 8px;
-  border: 1px solid var(--pk-line); background: var(--pk-bg); color: var(--pk-ink); cursor: pointer; }
-.pk-panebody { flex: 1; overflow-y: auto; padding: 6px 16px 16px; font-size: 15px; line-height: 1.5; }
-.pk-panebody p { margin: .5em 0; }
-.pk-panetitle { font-size: 17px; font-weight: 700; color: var(--pk-accent); }
-.pk-panelab { margin: 14px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--pk-muted); }
-.pk-panefoot { padding: 12px 16px; border-top: 1px solid var(--pk-line); }
-.pk-panesrc { font-weight: 600; color: var(--pk-accent); }
-button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; border: 0; padding: 0; text-decoration: underline dotted; cursor: pointer; }
-
-/* ── take a copy of a table or a diagram ───────────────────────────────── */
-.pk-copybtn { position: absolute; z-index: 6; width: 32px; height: 32px; padding: 5px; box-sizing: border-box;
-  border: 1px solid var(--pk-line); border-radius: 8px; background: var(--pk-bg); color: var(--pk-accent);
-  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .12s ease; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
-.pk-copybtn svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
-.pk-copybtn.pk-on, .pk-copybtn:focus-visible { opacity: 1; pointer-events: auto; }
-.pk-copybtn:hover { border-color: var(--pk-solid); }
-.pk-copybtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
-@media (hover: none) { .pk-copybtn { opacity: .7; pointer-events: auto; } }
-.pk-copymenu { position: absolute; z-index: 48; min-width: 230px; padding: 6px; box-sizing: border-box;
-  background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 10px;
-  box-shadow: 0 8px 28px rgba(0,0,0,.2); }
-.pk-copyitem { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none;
-  border: 0; border-radius: 6px; padding: 7px 10px; cursor: pointer; line-height: 1.3; }
-.pk-copyitem b { display: block; font-size: 14.5px; }
-.pk-copyitem span { display: block; font-size: 12.5px; color: var(--pk-muted); }
-.pk-copyitem:hover, .pk-copyitem:focus-visible { background: var(--pk-bg); outline: 2px solid var(--pk-solid); outline-offset: -2px; }
-.pk-toast { position: fixed; left: 50%; bottom: 44px; z-index: 58; transform: translate(-50%, 12px); max-width: min(560px, 90vw);
-  padding: 10px 16px; border-radius: 10px; background: var(--pk-ink); color: var(--pk-bg); font-size: 14.5px;
-  box-shadow: 0 6px 24px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; }
-.pk-toast.pk-on { opacity: 1; transform: translate(-50%, 0); }
-.pk-copyimg { display: block; max-width: 100%; height: auto; margin: 12px 0; border: 1px solid var(--pk-line); background: #fff; }
-
-/* ── a link to any section ───────────────────────────────────────────────── */
-.pk-linkbtn { display: inline-flex; vertical-align: middle; width: 1.35em; height: 1.35em; max-width: 26px; max-height: 26px;
-  margin: -.1em 0 0 .35em; padding: 2px; box-sizing: border-box; border: 0; border-radius: 6px; background: none;
-  color: var(--pk-accent); cursor: pointer; opacity: 0; transition: opacity .12s ease; }
-.pk-linkbtn svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-:is(h2, h3, h4, summary):hover > .pk-linkbtn, .pk-linkbtn:focus-visible { opacity: 1; }
-.pk-linkbtn:hover { background: var(--pk-surface); }
-.pk-linkbtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
-@media (hover: none) { .pk-linkbtn { opacity: .45; } }
-
 /* ── a security classification marking and a watermark ────────────────────
  * The marking as the PSR set out for a document: capitals, bold, at least the
  * body text's size, centred at the top and bottom of every page, in its
@@ -236,52 +146,14 @@ button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; bor
   .pk-mark { display: none !important; }
   :root:has(#pk-mark-top) { padding: 0; }
   .pk-watermark { position: fixed; color: rgba(128, 128, 128, .18); }
-  .pk-mo .pk-bar, .pk-mo .pk-tbar, .pk-mo .cbarfill { transform: none !important; }
-  .pk-mo .pk-mlab { opacity: 1 !important; }
-  table.pk-collapsed tr.pk-more { display: table-row; }
-  table.pk-collapsed tr > * { -webkit-mask-image: none; mask-image: none; }
-  .pk-morebar, .pk-float, .pk-rail, .pk-partnav, .pk-allbtn, .pk-panel, .pk-navbtn, .pk-scrim, .pk-tip, .pk-pane,
-  .pk-copybtn, .pk-copymenu, .pk-toast, .pk-linkbtn { display: none !important; }
+  .pk-rail, .pk-partnav, .pk-allbtn, .pk-panel, .pk-navbtn, .pk-scrim { display: none !important; }
   .pk-paneled body { padding-left: 0 !important; padding-top: 0 !important; }
   .pk-has-parts { display: block !important; }
   .pk-part, .pk-part[hidden] { display: block !important; content-visibility: visible !important; }
   .pk-part + .pk-part { break-before: page; margin-top: 0; }
 }
 
-/* 11. copy a code or message block: a labelled button above its top right */
-.pk-blockwrap { margin: 1rem 0; }
-.pk-blockwrap > pre, .pk-blockwrap > .pk-message, .pk-blockwrap > [data-pk-copy-label] { margin-top: 0; margin-bottom: 0; }
-.pk-blockbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
-.pk-blockcopy { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font: inherit; font-size: .82rem;
-  line-height: 1.3; color: var(--pk-ink, inherit); background: var(--pk-bg, transparent); border: 1px solid var(--pk-line);
-  border-radius: 6px; cursor: pointer; }
-.pk-blockcopy svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
-.pk-blockcopy:hover { border-color: var(--pk-solid); }
-.pk-blockcopy:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
-@media print { .pk-blockbar { display: none; } }
-
-/* 1b. filter and sort a long table */
-.pk-tabletools { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; margin: .6rem 0 .45rem; }
-.pk-filter { font: inherit; font-size: .9rem; padding: 5px 10px; min-width: min(320px, 100%); color: var(--pk-ink);
-  background: var(--pk-bg); border: 1px solid var(--pk-line); border-radius: 6px; }
-.pk-filter:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
-.pk-filtercount { font-size: .85rem; color: var(--pk-muted); }
-tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: none; }
-.pk-sortbtn { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; text-align: inherit;
-  cursor: pointer; display: inline-flex; align-items: baseline; gap: .3em; }
-.pk-sortbtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
-.pk-sortmark::after { content: "\2195"; font-size: .8em; opacity: .45; }
-th[aria-sort="ascending"] .pk-sortmark::after { content: "\25B2"; opacity: 1; }
-th[aria-sort="descending"] .pk-sortmark::after { content: "\25BC"; opacity: 1; }
-@media print {
-  .pk-tabletools { display: none; }
-  tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: table-row; }
-  .pk-sortmark { display: none; }
-}
-
-/* a source card's details line: who and when */
-.pk-tipmeta { margin-top: 4px; font-size: 12.5px; color: var(--pk-muted); }
-
+/* pk:feature tabs */
 /* 12. tabs within a section: one pane at a time under a row of tabs */
 .pk-tablist { display: flex; flex-wrap: wrap; gap: 2px; margin: 1.2rem 0 0; border-bottom: 1px solid var(--pk-line); }
 .pk-tablist [role="tab"] { font: inherit; font-size: .95rem; font-weight: 600; line-height: 1.3; color: var(--pk-muted);
@@ -302,3 +174,165 @@ th[aria-sort="descending"] .pk-sortmark::after { content: "\25BC"; opacity: 1; }
   .pk-tablist { display: none !important; }
   .pk-tab, .pk-tab[hidden] { display: block !important; content-visibility: visible !important; }
 }
+/* pk:end tabs */
+
+/* pk:feature long-tables */
+/* ── long tables: the rows beyond the preview, and the control ──────────── */
+table.pk-collapsed tr.pk-more { display: none; }
+/* The last row shown fades a little, so the cut reads as "there is more". */
+table.pk-collapsed tr.pk-edge > * {
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, rgba(0,0,0,.35));
+          mask-image: linear-gradient(to bottom, #000 40%, rgba(0,0,0,.35));
+}
+.pk-morebar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; margin: .35rem 0 1.25rem; }
+.pk-morebtn::after { content: " \25BE"; }
+.pk-morebtn[aria-expanded="true"]::after { content: " \25B4"; }
+.pk-morenote { font-size: .85rem; color: var(--pk-muted); }
+@media print {
+  table.pk-collapsed tr.pk-more { display: table-row; }
+  table.pk-collapsed tr > * { -webkit-mask-image: none; mask-image: none; }
+  .pk-morebar { display: none !important; }
+}
+
+/* 1b. filter and sort a long table */
+.pk-tabletools { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; margin: .6rem 0 .45rem; }
+.pk-filter { font: inherit; font-size: .9rem; padding: 5px 10px; min-width: min(320px, 100%); color: var(--pk-ink);
+  background: var(--pk-bg); border: 1px solid var(--pk-line); border-radius: 6px; }
+.pk-filter:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
+.pk-filtercount { font-size: .85rem; color: var(--pk-muted); }
+tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: none; }
+.pk-sortbtn { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; text-align: inherit;
+  cursor: pointer; display: inline-flex; align-items: baseline; gap: .3em; }
+.pk-sortbtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+.pk-sortmark::after { content: "\2195"; font-size: .8em; opacity: .45; }
+th[aria-sort="ascending"] .pk-sortmark::after { content: "\25B2"; opacity: 1; }
+th[aria-sort="descending"] .pk-sortmark::after { content: "\25BC"; opacity: 1; }
+@media print {
+  .pk-tabletools { display: none; }
+  tr.pk-filtered, table.pk-collapsed tr.pk-filtered { display: table-row; }
+  .pk-sortmark { display: none; }
+}
+/* pk:end long-tables */
+
+/* pk:feature pinned-headings */
+/* ── table headings that stay in view ───────────────────────────────────── */
+.pk-float {
+  position: fixed; z-index: 4; display: none; overflow: hidden;
+  pointer-events: none; box-shadow: 0 2px 4px -2px rgba(0,0,0,.25);
+}
+.pk-float table { table-layout: fixed; border-collapse: collapse; margin: 0; }
+@media print { .pk-float { display: none !important; } }
+/* pk:end pinned-headings */
+
+/* pk:feature charts */
+/* ── charts draw themselves when they come into view ───────────────────── */
+.pk-mo .pk-bar { transform-box: view-box; transform-origin: 50% 100%; transform: scaleY(0); }
+.pk-mo .pk-tbar { transform-box: fill-box; transform-origin: 0 50%; transform: scaleX(0); }
+.pk-mo .cbarfill { transform-origin: 0 50%; transform: scaleX(0); }
+.pk-mo .pk-mlab { opacity: 0; }
+.pk-mo.pk-in .pk-bar, .pk-mo.pk-in .pk-tbar, .pk-mo.pk-in .cbarfill {
+  transform: none; transition: transform .8s cubic-bezier(.2,.8,.2,1) var(--pk-d, 0s); }
+.pk-mo.pk-in .pk-mlab { opacity: 1; transition: opacity .4s ease var(--pk-d, 0s); }
+@media print {
+  .pk-mo .pk-bar, .pk-mo .pk-tbar, .pk-mo .cbarfill { transform: none !important; }
+  .pk-mo .pk-mlab { opacity: 1 !important; }
+}
+/* pk:end charts */
+
+/* pk:feature pane */
+/* ── the side pane: what a control opens down the right ───────────────── */
+.pk-pane { position: fixed; top: 0; right: 0; bottom: 0; z-index: 45; width: min(460px, 92vw); box-sizing: border-box;
+  display: flex; flex-direction: column; background: var(--pk-surface); color: var(--pk-ink);
+  border-left: 1px solid var(--pk-line); box-shadow: -8px 0 28px rgba(0,0,0,.18);
+  transform: translateX(104%); transition: transform .18s ease; visibility: hidden; outline: none; }
+.pk-paneopen .pk-pane { transform: none; visibility: visible; }
+.pk-panehead { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--pk-line); }
+.pk-paneid { font-weight: 700; font-size: 16px; }
+.pk-paneclose { margin-left: auto; font: inherit; font-size: 24px; line-height: 1; width: 34px; height: 34px; border-radius: 8px;
+  border: 1px solid var(--pk-line); background: var(--pk-bg); color: var(--pk-ink); cursor: pointer; }
+.pk-panebody { flex: 1; overflow-y: auto; padding: 6px 16px 16px; font-size: 15px; line-height: 1.5; }
+.pk-panebody p { margin: .5em 0; }
+@media print { .pk-pane { display: none !important; } }
+/* pk:end pane */
+
+/* pk:feature cards */
+/* ── identifiers: a card on hover, the whole entry in a pane ─────────────── */
+a.pk-ref[data-pk-ref] { text-decoration-style: dotted; text-underline-offset: 3px; cursor: help; }
+/* a defined term reads as part of the sentence: the text's own colour, a dotted line under it */
+a.pk-term[data-pk-ref], .pk-prose a.pk-term[data-pk-ref] { color: inherit; text-decoration: underline dotted; text-decoration-color: var(--pk-muted); text-underline-offset: 3px; }
+a.pk-term[data-pk-ref]:hover { text-decoration-color: var(--pk-solid); }
+.pk-tip { display: none; position: fixed; z-index: 50; max-width: 380px; box-sizing: border-box; padding: 10px 12px;
+  background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); font-size: 14px; line-height: 1.4; pointer-events: none; }
+.pk-tiphead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.pk-tipsrc { color: var(--pk-muted); font-size: 12.5px; }
+.pk-tiphint { margin-top: 6px; color: var(--pk-muted); font-size: 12.5px; }
+.pk-lvl { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 99px;
+  color: var(--pk-accent); border: 1px solid var(--pk-solid); }
+.pk-panetitle { font-size: 17px; font-weight: 700; color: var(--pk-accent); }
+.pk-panelab { margin: 14px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--pk-muted); }
+.pk-panefoot { padding: 12px 16px; border-top: 1px solid var(--pk-line); }
+.pk-panesrc { font-weight: 600; color: var(--pk-accent); }
+button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; border: 0; padding: 0; text-decoration: underline dotted; cursor: pointer; }
+/* a source card's details line: who and when */
+.pk-tipmeta { margin-top: 4px; font-size: 12.5px; color: var(--pk-muted); }
+@media print { .pk-tip { display: none !important; } }
+/* pk:end cards */
+
+/* pk:feature clipboard */
+/* ── a notice that says what was copied ───────────────────────────────── */
+.pk-toast { position: fixed; left: 50%; bottom: 44px; z-index: 58; transform: translate(-50%, 12px); max-width: min(560px, 90vw);
+  padding: 10px 16px; border-radius: 10px; background: var(--pk-ink); color: var(--pk-bg); font-size: 14.5px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; }
+.pk-toast.pk-on { opacity: 1; transform: translate(-50%, 0); }
+@media print { .pk-toast { display: none !important; } }
+/* pk:end clipboard */
+
+/* pk:feature copy-out */
+/* ── take a copy of a table or a diagram ───────────────────────────────── */
+.pk-copybtn { position: absolute; z-index: 6; width: 32px; height: 32px; padding: 5px; box-sizing: border-box;
+  border: 1px solid var(--pk-line); border-radius: 8px; background: var(--pk-bg); color: var(--pk-accent);
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .12s ease; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.pk-copybtn svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.pk-copybtn.pk-on, .pk-copybtn:focus-visible { opacity: 1; pointer-events: auto; }
+.pk-copybtn:hover { border-color: var(--pk-solid); }
+.pk-copybtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+@media (hover: none) { .pk-copybtn { opacity: .7; pointer-events: auto; } }
+.pk-copymenu { position: absolute; z-index: 48; min-width: 230px; padding: 6px; box-sizing: border-box;
+  background: var(--pk-surface); color: var(--pk-ink); border: 1px solid var(--pk-line); border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.2); }
+.pk-copyitem { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none;
+  border: 0; border-radius: 6px; padding: 7px 10px; cursor: pointer; line-height: 1.3; }
+.pk-copyitem b { display: block; font-size: 14.5px; }
+.pk-copyitem span { display: block; font-size: 12.5px; color: var(--pk-muted); }
+.pk-copyitem:hover, .pk-copyitem:focus-visible { background: var(--pk-bg); outline: 2px solid var(--pk-solid); outline-offset: -2px; }
+.pk-copyimg { display: block; max-width: 100%; height: auto; margin: 12px 0; border: 1px solid var(--pk-line); background: #fff; }
+@media print { .pk-copybtn, .pk-copymenu { display: none !important; } }
+/* pk:end copy-out */
+
+/* pk:feature copy-blocks */
+/* 11. copy a code or message block: a labelled button above its top right */
+.pk-blockwrap { margin: 1rem 0; }
+.pk-blockwrap > pre, .pk-blockwrap > .pk-message, .pk-blockwrap > [data-pk-copy-label] { margin-top: 0; margin-bottom: 0; }
+.pk-blockbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.pk-blockcopy { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font: inherit; font-size: .82rem;
+  line-height: 1.3; color: var(--pk-ink, inherit); background: var(--pk-bg, transparent); border: 1px solid var(--pk-line);
+  border-radius: 6px; cursor: pointer; }
+.pk-blockcopy svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.pk-blockcopy:hover { border-color: var(--pk-solid); }
+.pk-blockcopy:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 2px; }
+@media print { .pk-blockbar { display: none; } }
+/* pk:end copy-blocks */
+
+/* pk:feature section-links */
+/* ── a link to any section ───────────────────────────────────────────────── */
+.pk-linkbtn { display: inline-flex; vertical-align: middle; width: 1.35em; height: 1.35em; max-width: 26px; max-height: 26px;
+  margin: -.1em 0 0 .35em; padding: 2px; box-sizing: border-box; border: 0; border-radius: 6px; background: none;
+  color: var(--pk-accent); cursor: pointer; opacity: 0; transition: opacity .12s ease; }
+.pk-linkbtn svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+:is(h2, h3, h4, summary):hover > .pk-linkbtn, .pk-linkbtn:focus-visible { opacity: 1; }
+.pk-linkbtn:hover { background: var(--pk-surface); }
+.pk-linkbtn:focus-visible { outline: 3px solid var(--pk-solid); outline-offset: 1px; }
+@media (hover: none) { .pk-linkbtn { opacity: .45; } }
+@media print { .pk-linkbtn { display: none !important; } }
+/* pk:end section-links */

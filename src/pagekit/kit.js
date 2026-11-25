@@ -12,6 +12,15 @@
  *
  * Opt a table out with  data-pk="off"  (on the table or any ancestor).
  * Change a table's preview with  data-pk-preview="5"  or  "all".
+ *
+ * A page carries the core (everything outside a fence) and only the features
+ * it uses: each optional feature, and each part features share, sits between
+ * a  pk:feature NAME  line and a  pk:end NAME  line, and the build leaves
+ * out the ones a page does not use (pagekit.FEATURES says which needs which).
+ * So the core never calls into a feature: a feature lends its behaviour
+ * through on() and the core asks for it through fire(), which does nothing
+ * when the feature is not there. A test holds that no part of this file uses
+ * a name defined only in a feature it does not need.
  */
 (function () {
 "use strict";
@@ -36,6 +45,18 @@ function setHash(id) {
   try { history.replaceState(null, "", "#" + id); } catch (e) {}
 }
 
+/* The features this copy of the kit carries, written in by the build. */
+var KIT = "@PK-KIT@";
+/* What a feature lends the core, by moment: "table" (each table, at load),
+ * "start" (before the panel is built), "built" (after it), "open" (make a
+ * node visible), "shown" (something hidden just showed), "find" (the reader
+ * is about to use find-in-page), "print" and "unprint", "frame" and
+ * "relayout" (pinned copies follow the page), "inpane" (a control inside the
+ * side pane). Handlers run in the order the features sit in this file. */
+var hooks = {};
+function on(name, fn) { (hooks[name] = hooks[name] || []).push(fn); }
+function fire(name, arg) { (hooks[name] || []).forEach(function (fn) { fn(arg); }); }
+
 /* Tables that are pictures, controls or already managed are left alone:
  * anything opted out and anything in a figure, plus whatever the page names in
  * <meta name="pk-skip" content="selectors"> (pagekit.set_skip): an older
@@ -47,243 +68,13 @@ var SKIP = '[data-pk="off"], figure';
   try { doc.querySelector(s); SKIP += ", " + s; } catch (e) {}
 })();
 function skipped(t) { return !!(t.closest && t.closest(SKIP)); }
-
-function rowsOf(t) {
-  var out = [];
-  each(t.tBodies, function (tb) { each(tb.rows, function (r) { out.push(r); }); });
-  return out;
-}
-
-/* ── 1. Long tables show their first rows ─────────────────────────────────
- * A table whose rows are taller than one screen shows its first PREVIEW
- * rows, with a button that says how many more there are. Height, not a row
- * count, is the test: ten short rows fit on a screen and gain nothing from a
- * click, while six rows of long prose may not. A table that cannot be
- * measured yet (in a closed fold, or a part not on screen) is decided when
- * it first shows. The cut never splits a cell that spans rows. Find-in-page,
- * printing and links into a hidden row all open the table first. */
-var PREVIEW = 3, MIN_ROWS = 6, seq = 0;
-var longTables = [], undecided = [];
-
-function tooTall(t) {
-  var h = 0;
-  each(t.tBodies, function (b) { h += b.getBoundingClientRect().height; });
-  return h > Math.max(innerHeight, 600);
-}
-
-function setOpen(rec, open, keepPlace) {
-  rec.open = open;
-  rec.table.classList.toggle("pk-collapsed", !open);
-  rec.btn.setAttribute("aria-expanded", open ? "true" : "false");
-  rec.btn.textContent = open
-    ? "Show the first " + rec.cut + " rows only"
-    : "Show all " + rec.total.toLocaleString("en-NZ") + " rows";
-  rec.note.textContent = open ? "" : "Showing " + rec.cut + " of " + rec.total.toLocaleString("en-NZ") + " rows.";
-  if (!open && keepPlace) {
-    var top = rec.box.getBoundingClientRect().top;
-    if (top < 0) rec.box.scrollIntoView({ block: "start" });
-  }
-  floatAll();
-}
-
-function hiddenNow(t) {
-  return !t.getClientRects().length || t.closest("details:not([open])") ||
-    t.closest(".pk-part[hidden], .pk-tab[hidden]");
-}
-
-function initLong(t) {
-  if (skipped(t) || t.hasAttribute("data-pk-done")) return;
-  var rows = rowsOf(t), want = t.getAttribute("data-pk-preview");
-  if (want === "all") return;
-  var preview = parseInt(want, 10) || PREVIEW;
-  if (rows.length < Math.max(MIN_ROWS, preview + 2)) return;
-  if (!want) {
-    /* Chrome lays out a closed fold's content at zero size rather than not at
-     * all, and a part hidden "until found" keeps its old boxes, so "has a
-     * box" is not "can be measured": ask about the fold and the part. */
-    if (hiddenNow(t)) { if (undecided.indexOf(t) < 0) undecided.push(t); return; }
-    if (!tooTall(t)) return;
-  }
-  var cut = preview;
-  for (var i = 0; i < cut && i < rows.length; i++)
-    each(rows[i].cells, function (c) { if (c.rowSpan > 1) cut = Math.max(cut, i + c.rowSpan); });
-  if (rows.length - cut < 2) return;
-  t.setAttribute("data-pk-done", "");
-  rows.forEach(function (r, n) { if (n >= cut) r.classList.add("pk-more"); });
-  rows[cut - 1].classList.add("pk-edge");
-  /* The control sits after the table's scroll wrapper, so it stays in view
-   * when a wide table is scrolled sideways. */
-  var p = t.parentElement, box = t;
-  if (p && p.children.length === 1 && /(auto|scroll)/.test(getComputedStyle(p).overflowX)) box = p;
-  var bar = doc.createElement("div");
-  bar.className = "pk-morebar";
-  var btn = doc.createElement("button");
-  btn.type = "button";
-  btn.className = "pk-morebtn";
-  btn.setAttribute("aria-controls", [].map.call(t.tBodies, function (b) {
-    if (!b.id) b.id = "pk-tb" + (++seq);
-    return b.id;
-  }).join(" "));
-  var note = doc.createElement("span");
-  note.className = "pk-morenote";
-  note.setAttribute("aria-live", "polite");
-  bar.appendChild(btn);
-  bar.appendChild(note);
-  box.parentNode.insertBefore(bar, box.nextSibling);
-  var rec = { table: t, box: box, btn: btn, note: note, cut: cut, total: rows.length, open: false };
-  btn.addEventListener("click", function () { setOpen(rec, !rec.open, true); });
-  longTables.push(rec);
-  setOpen(rec, false, false);
-  initTools(rec, rows);
-}
-
-/* ── 1b. Filter and sort a long table ─────────────────────────────────────
- * A table long enough to fold to its first rows also gets a filter box above
- * it and sortable column headings. The filter matches the words in a row,
- * ignoring case and macrons, shows every matching row (the fold opens while a
- * filter is set) and says how many match. A heading is a button: ascending,
- * then descending, then the table's own order again, said to a screen reader
- * through aria-sort. Numbers sort as numbers (thousands separators and a
- * trailing % allowed), everything else in New Zealand English order with
- * numbers inside words compared as numbers, and empty cells last either way.
- * Not on a table with more than one body or heading row, or whose cells span
- * rows or whose headings span columns, where moving a row would break the
- * rows around it; off with data-pk-tools="off". On paper every row prints. */
-function plain(s) { return String(s).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
-function toolsFit(t, rows) {
-  if (t.closest('[data-pk-tools="off"]') || t.tBodies.length !== 1 || !t.tHead || t.tHead.rows.length !== 1) return false;
-  var spans = false;
-  each(t.tHead.rows[0].cells, function (c) { if (c.colSpan > 1 || c.rowSpan > 1) spans = true; });
-  rows.forEach(function (r) { each(r.cells, function (c) { if (c.rowSpan > 1) spans = true; }); });
-  return !spans;
-}
-function sortKey(text) {
-  var s = text.replace(/[\s,]/g, "").replace(/%$/, "");
-  return /^[-+]?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : null;
-}
-var COLLATE = window.Intl && Intl.Collator ? new Intl.Collator("en-NZ", { numeric: true, sensitivity: "base" }) : null;
-function initTools(rec, rows) {
-  var t = rec.table;
-  if (!toolsFit(t, rows)) return;
-  var body = t.tBodies[0], original = rows.slice();
-  /* Cells joined by a space: a filter matches words a reader can see, never
-   * the end of one cell run into the start of the next. */
-  var words = original.map(function (r) {
-    return plain([].map.call(r.cells, function (c) { return c.textContent; }).join(" ").replace(/\s+/g, " "));
-  });
-  var tools = el("div", "pk-tabletools"), box = el("input", "pk-filter"), count = el("span", "pk-filtercount");
-  box.type = "search";
-  box.placeholder = "Filter these " + rec.total.toLocaleString("en-NZ") + " rows";
-  box.setAttribute("aria-label", "Filter the rows of this table");
-  count.setAttribute("aria-live", "polite");
-  tools.appendChild(box);
-  tools.appendChild(count);
-  rec.box.parentNode.insertBefore(tools, rec.box);
-  var wasOpen = null, timer = null;
-  function filter() {
-    var q = plain(box.value.trim()), shown = 0;
-    original.forEach(function (r, i) {
-      var hit = !q || words[i].indexOf(q) >= 0;
-      r.classList.toggle("pk-filtered", !hit);
-      if (hit) shown++;
-    });
-    if (q) {
-      if (wasOpen === null) wasOpen = rec.open;
-      if (!rec.open) setOpen(rec, true, false);
-      rec.btn.parentNode.hidden = true;
-      count.textContent = shown.toLocaleString("en-NZ") + " of " + rec.total.toLocaleString("en-NZ") + " rows match";
-    } else {
-      rec.btn.parentNode.hidden = false;
-      if (wasOpen !== null && wasOpen !== rec.open) setOpen(rec, wasOpen, false);
-      wasOpen = null;
-      count.textContent = "";
-    }
-    rebuildAll();
-  }
-  box.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(filter, 120); });
-  rec.clearFilter = function () { if (box.value) { box.value = ""; filter(); } };
-  var heads = [].slice.call(t.tHead.rows[0].cells), state = { col: -1, dir: 0 };
-  heads.forEach(function (th, col) {
-    if (!th.textContent.trim()) return;
-    var b = el("button", "pk-sortbtn"), mark = el("span", "pk-sortmark");
-    b.type = "button";
-    mark.setAttribute("aria-hidden", "true");
-    while (th.firstChild) b.appendChild(th.firstChild);
-    b.appendChild(mark);
-    th.appendChild(b);
-    th.setAttribute("data-pk-col", String(col));
-    th.setAttribute("aria-sort", "none");
-    b.addEventListener("click", function () { sortBy(col); });
-  });
-  function sortBy(col) {
-    var dir = state.col === col ? (state.dir + 1) % 3 : 1;
-    state = { col: col, dir: dir };
-    var order = original.slice();
-    if (dir) {
-      var vals = order.map(function (r) { return r.cells[col] ? cellText(r.cells[col]) : ""; });
-      var nums = vals.map(sortKey);
-      var numeric = vals.every(function (v, i) { return !v || nums[i] !== null; }) && nums.some(function (n) { return n !== null; });
-      var idx = order.map(function (r, i) { return i; });
-      idx.sort(function (a, b) {
-        var va = vals[a], vb = vals[b];
-        if (!va || !vb) return !va && !vb ? a - b : (!va ? 1 : -1);
-        var d = numeric ? nums[a] - nums[b] : (COLLATE ? COLLATE.compare(va, vb) : (va < vb ? -1 : va > vb ? 1 : 0));
-        return (dir === 2 ? -d : d) || a - b;
-      });
-      order = idx.map(function (i) { return original[i]; });
-    }
-    order.forEach(function (r) { body.appendChild(r); });
-    order.forEach(function (r, n) {
-      r.classList.toggle("pk-more", n >= rec.cut);
-      r.classList.toggle("pk-edge", n === rec.cut - 1);
-    });
-    heads.forEach(function (th, i) {
-      if (th.hasAttribute("data-pk-col"))
-        th.setAttribute("aria-sort", i === col && dir ? (dir === 1 ? "ascending" : "descending") : "none");
-    });
-    rebuildAll();
-  }
-}
-/* A heading clicked in a pinned copy sorts the real table. */
-function sortFromCopy(e) {
-  var b = e.target && e.target.closest ? e.target.closest(".pk-float .pk-sortbtn") : null;
-  if (!b) return;
-  var th = b.closest("th, td"), shell = b.closest(".pk-float");
-  floats.forEach(function (f) {
-    if (f.shell !== shell) return;
-    var real = f.table.querySelector('th[data-pk-col="' + th.getAttribute("data-pk-col") + '"] .pk-sortbtn');
-    if (real) real.click();
-  });
-}
-function retryUndecided() {
-  var wait = undecided;
-  undecided = [];
-  wait.forEach(initLong);
-}
-
-function openTableHolding(el) {
-  if (!el || !el.closest) return;
-  var hid = el.closest("tr.pk-filtered");
-  if (hid) longTables.forEach(function (r) { if (r.table.contains(hid) && r.clearFilter) r.clearFilter(); });
-  var t = el.closest("table.pk-collapsed");
-  if (!t) return;
-  longTables.forEach(function (r) { if (r.table === t) setOpen(r, true, false); });
-}
-function openAllTables() { longTables.forEach(function (r) { if (!r.open) setOpen(r, true, false); }); }
 function byId(id) {
   if (!id) return null;
   try { return doc.getElementById(decodeURIComponent(id)); } catch (e) { return doc.getElementById(id); }
 }
 function targetOf(h) { return h && h.length > 1 && h.charAt(0) === "#" ? byId(h.slice(1)) : null; }
 
-/* ── 2. Table headings stay in view ────────────────────────────────────────
- * When a table's own heading row has scrolled off the top and the table is
- * still on screen, a copy of the heading row is pinned to the top, matched
- * column for column and following any sideways scroll. A copy, not CSS
- * `position: sticky`, because sticky cannot escape the sideways-scroll
- * wrapper that wide tables need. The copy is hidden from screen readers,
- * which already have the real heading row. */
-var floats = [];
+var LOCKED = FRAMED && String(window.origin) === "null";
 
 /* The bottom edge of whatever is pinned across the top of the window (a
  * contents bar, the parts bar on a narrow screen), so nothing hides under it. */
@@ -313,74 +104,19 @@ function stickyHeight() {
   return h;
 }
 
-var COPY = ["backgroundColor", "color", "fontWeight", "fontSize", "fontFamily",
-  "textAlign", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-  "borderBottomWidth", "borderBottomStyle", "borderBottomColor", "lineHeight",
-  "verticalAlign", "letterSpacing", "textTransform", "whiteSpace"];
-
-function initFloat(t) {
-  if (skipped(t) || !t.tHead || !t.tHead.rows.length) return;
-  var p = t.parentElement, scroller = null;
-  if (p && /(auto|scroll)/.test(getComputedStyle(p).overflowX)) scroller = p;
-  var shell = doc.createElement("div");
-  shell.className = "pk-float";
-  shell.setAttribute("aria-hidden", "true");
-  var copy = doc.createElement("table");
-  copy.className = t.className.replace(/\bpk-\S+/g, "").trim();
-  shell.appendChild(copy);
-  doc.body.appendChild(shell);
-  var rec = { table: t, scroller: scroller, shell: shell, copy: copy, built: 0 };
-  if (scroller) scroller.addEventListener("scroll", function () { place(rec, stickyTop()); }, { passive: true });
-  floats.push(rec);
-}
-
-function build(rec) {
-  var head = rec.table.tHead, ths = head.querySelectorAll("th, td");
-  var clone = head.cloneNode(true);
-  each(clone.querySelectorAll("[id]"), function (n) { n.removeAttribute("id"); });
-  if (clone.id) clone.removeAttribute("id");
-  var cells = clone.querySelectorAll("th, td");
-  each(ths, function (th, i) {
-    var cs = getComputedStyle(th), w = th.getBoundingClientRect().width, c = cells[i];
-    COPY.forEach(function (k) { c.style[k] = cs[k]; });
-    if (cs.backgroundColor === "rgba(0, 0, 0, 0)" || cs.backgroundColor === "transparent")
-      c.style.backgroundColor = getComputedStyle(doc.body).backgroundColor;
-    c.style.width = c.style.minWidth = c.style.maxWidth = w + "px";
-    c.style.boxSizing = "border-box";
-  });
-  each(clone.querySelectorAll("button"), function (b) { b.tabIndex = -1; });
-  rec.copy.innerHTML = "";
-  rec.copy.appendChild(clone);
-  rec.copy.style.width = rec.table.getBoundingClientRect().width + "px";
-  rec.built = rec.table.getBoundingClientRect().width;
-}
-
-function place(rec, top) {
-  var t = rec.table, r = t.getBoundingClientRect(), hh = t.tHead.getBoundingClientRect().height;
-  var show = r.width > 0 && r.top < top && r.bottom - hh * 2 > top && t.getClientRects().length &&
-    !t.closest(".pk-part[hidden]");
-  if (!show) { if (rec.shell.style.display !== "none") rec.shell.style.display = "none"; return; }
-  if (Math.abs(rec.built - r.width) > 0.5 || !rec.copy.firstChild) build(rec);
-  var clip = rec.scroller ? rec.scroller.getBoundingClientRect() : r;
-  rec.shell.style.display = "block";
-  rec.shell.style.top = top + "px";
-  rec.shell.style.left = clip.left + "px";
-  rec.shell.style.width = clip.width + "px";
-  rec.copy.style.transform = "translateX(" + (r.left - clip.left) + "px)";
-}
-
+/* Once a frame: whatever is pinned to the top follows the page, then the
+ * panel marks where the reader is. A relayout makes pinned copies re-measure. */
 var pending = false;
 function floatAll() {
   if (pending) return;
   pending = true;
   requestAnimationFrame(function () {
     pending = false;
-    var top = stickyTop();
-    floats.forEach(function (f) { place(f, top); });
+    if (hooks.frame) fire("frame", stickyTop());
     spy();
   });
 }
-function rebuildAll() { floats.forEach(function (f) { f.built = -1; }); floatAll(); }
+function rebuildAll() { fire("relayout"); floatAll(); }
 
 /* ── 3. The panel: contents, search and controls, down the left ────────────
  * A strip of section names across the top grows into two tiers on a long
@@ -516,6 +252,13 @@ function el(tag, cls, html) {
   if (cls) n.className = cls;
   if (html) n.innerHTML = html;
   return n;
+}
+function clip(t, n) { return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, "") + "…"; }
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function num(el, a) { var v = parseFloat(el.getAttribute(a)); return isNaN(v) ? null : v; }
+function boxOf(svg) {
+  var vb = svg.viewBox && svg.viewBox.baseVal;
+  return vb && vb.width ? { w: vb.width, h: vb.height } : null;
 }
 
 function buildPanel() {
@@ -814,7 +557,7 @@ function showPart(p, opts) {
   parts.forEach(function (q) { if (q === p) q.removeAttribute("hidden"); else conceal(q); });
   current = p;
   label(false);
-  retryUndecided();
+  fire("shown");
   rebuildAll();
   mark(true);
   if (!opts.quiet) say("Showing part " + (parts.indexOf(p) + 1) + " of " + parts.length + ": " + (p.getAttribute("data-pk-title") || ""));
@@ -832,7 +575,7 @@ function showAll() {
   root.classList.add("pk-all");
   parts.forEach(function (q) { q.removeAttribute("hidden"); });
   label(true);
-  retryUndecided();
+  fire("shown");
   rebuildAll();
   mark(true);
 }
@@ -868,10 +611,12 @@ function reveal(t) {
   var d = t.closest ? t.closest("details") : null;
   if (t.tagName === "SUMMARY") d = t.parentNode;
   while (d) { d.open = true; d = d.parentElement ? d.parentElement.closest("details") : null; }
-  openTableHolding(t);
   var p = partOf(t);
   if (p && parts.length && !allMode && p !== current) showPart(p, { scroll: false, hash: false, quiet: false });
-  openTabHolding(t);
+  /* Then a tab, then a long table holding it: showing a tab can fold a table
+   * that could not be measured while the tab was hidden, so the table opens
+   * last. */
+  fire("open", t);
 }
 
 function go(t, id, flash) {
@@ -950,6 +695,431 @@ function initTheme() {
   themeLabels();
 }
 
+/* pk:feature tabs */
+/* ── 12. Tabs within a section ────────────────────────────────────────────
+ * A <div class="pk-tabs"> holding two or more <section class="pk-tab"> shows
+ * one pane at a time under a row of tabs: options side by side in a decision
+ * paper, say. A tab is named by its pane's data-pk-title, else by the pane's
+ * first heading, which the tab then stands in for on screen. The tabs follow
+ * the usual pattern for tabs: Left and Right move between them (Home and End
+ * to the ends) and the pane follows. A pane not shown is hidden "until found"
+ * where the browser offers it, so find-in-page still reaches it; elsewhere
+ * the find shortcut shows every pane. Search, links and print reach every
+ * pane. With scripting off, or on paper, every pane shows under its heading. */
+var tabGroups = [];
+function tabOf(n) { return n && n.closest ? n.closest(".pk-tabs > .pk-tab") : null; }
+function selectTab(g, i, opts) {
+  opts = opts || {};
+  g.every = false;
+  g.box.classList.remove("pk-tabs-every");
+  g.panes.forEach(function (p, k) {
+    var picked = k === i;
+    g.tabs[k].setAttribute("aria-selected", picked ? "true" : "false");
+    g.tabs[k].tabIndex = picked ? 0 : -1;
+    if (picked) p.removeAttribute("hidden"); else conceal(p);
+  });
+  g.current = i;
+  if (opts.focus) try { g.tabs[i].focus(); } catch (e) {}
+  if (opts.hash) setHash(g.panes[i].id);
+  fire("shown");
+  rebuildAll();
+}
+/* Every pane at once, each under its own heading: for find-in-page where
+ * the browser cannot reveal a hidden match. A tab click returns to one. */
+function everyTab(g) {
+  g.every = true;
+  g.box.classList.add("pk-tabs-every");
+  g.panes.forEach(function (p, k) { p.removeAttribute("hidden"); g.tabs[k].setAttribute("aria-selected", "false"); });
+  fire("shown");
+  rebuildAll();
+}
+/* Opens the pane holding n, and any pane holding that, outward. */
+function openTabHolding(n) {
+  var p = tabOf(n);
+  while (p) {
+    tabGroups.forEach(function (g) {
+      var i = g.panes.indexOf(p);
+      if (i >= 0 && !g.every && i !== g.current) selectTab(g, i);
+    });
+    p = tabOf(p.parentElement);
+  }
+}
+function initTabs() {
+  each(doc.querySelectorAll(".pk-tabs"), function (box, gi) {
+    var panes = [].filter.call(box.children, function (c) { return c.classList.contains("pk-tab"); });
+    if (panes.length < 2 || box.querySelector(":scope > .pk-tablist")) return;
+    var list = el("div", "pk-tablist"), g = { box: box, panes: panes, tabs: [], current: 0, every: false };
+    list.setAttribute("role", "tablist");
+    var name = box.getAttribute("aria-label") || box.getAttribute("data-pk-title");
+    if (name) list.setAttribute("aria-label", name);
+    panes.forEach(function (p, k) {
+      var h = p.querySelector("h2, h3, h4, h5"), own = p.getAttribute("data-pk-title");
+      var b = el("button");
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.id = "pk-tabbtn-" + (gi + 1) + "-" + (k + 1);
+      b.textContent = own || (h ? words(h) : "") || "Tab " + (k + 1);
+      /* The tab names the pane on screen, so a heading it was named from is
+       * kept for screen readers, every-pane view and paper only. */
+      if (!own && h && h === p.firstElementChild) h.classList.add("pk-tabhead");
+      idFor(p, "tab-" + (gi + 1) + "-" + (k + 1));
+      b.setAttribute("aria-controls", p.id);
+      p.setAttribute("role", "tabpanel");
+      p.setAttribute("aria-labelledby", b.id);
+      if (!p.hasAttribute("tabindex")) p.tabIndex = 0;
+      b.addEventListener("click", function () { selectTab(g, k, { hash: true }); });
+      p.addEventListener("beforematch", function () { if (!g.every && g.current !== k) selectTab(g, k); });
+      list.appendChild(b);
+      g.tabs.push(b);
+    });
+    list.addEventListener("keydown", function (e) {
+      var n = g.tabs.length, i = g.tabs.indexOf(e.target), j = -1;
+      if (i < 0) return;
+      if (e.key === "ArrowRight") j = (i + 1) % n;
+      else if (e.key === "ArrowLeft") j = (i + n - 1) % n;
+      else if (e.key === "Home") j = 0;
+      else if (e.key === "End") j = n - 1;
+      if (j < 0) return;
+      e.preventDefault();
+      selectTab(g, j, { focus: true, hash: true });
+    });
+    box.insertBefore(list, panes[0]);
+    box.classList.add("pk-tabbed");
+    tabGroups.push(g);
+    selectTab(g, 0);
+  });
+}
+on("start", initTabs);
+on("open", openTabHolding);
+on("find", function () { if (!UNTIL_FOUND) tabGroups.forEach(function (g) { if (!g.every) everyTab(g); }); });
+/* pk:end tabs */
+
+/* pk:feature long-tables */
+/* ── 1. Long tables show their first rows ─────────────────────────────────
+ * A table whose rows are taller than one screen shows its first PREVIEW
+ * rows, with a button that says how many more there are. Height, not a row
+ * count, is the test: ten short rows fit on a screen and gain nothing from a
+ * click, while six rows of long prose may not. A table that cannot be
+ * measured yet (in a closed fold, or a part not on screen) is decided when
+ * it first shows. The cut never splits a cell that spans rows. Find-in-page,
+ * printing and links into a hidden row all open the table first. */
+var PREVIEW = 3, MIN_ROWS = 6, seq = 0;
+var longTables = [], undecided = [];
+
+function rowsOf(t) {
+  var out = [];
+  each(t.tBodies, function (tb) { each(tb.rows, function (r) { out.push(r); }); });
+  return out;
+}
+
+function tooTall(t) {
+  var h = 0;
+  each(t.tBodies, function (b) { h += b.getBoundingClientRect().height; });
+  return h > Math.max(innerHeight, 600);
+}
+
+function setOpen(rec, open, keepPlace) {
+  rec.open = open;
+  rec.table.classList.toggle("pk-collapsed", !open);
+  rec.btn.setAttribute("aria-expanded", open ? "true" : "false");
+  rec.btn.textContent = open
+    ? "Show the first " + rec.cut + " rows only"
+    : "Show all " + rec.total.toLocaleString("en-NZ") + " rows";
+  rec.note.textContent = open ? "" : "Showing " + rec.cut + " of " + rec.total.toLocaleString("en-NZ") + " rows.";
+  if (!open && keepPlace) {
+    var top = rec.box.getBoundingClientRect().top;
+    if (top < 0) rec.box.scrollIntoView({ block: "start" });
+  }
+  floatAll();
+}
+
+function hiddenNow(t) {
+  return !t.getClientRects().length || t.closest("details:not([open])") ||
+    t.closest(".pk-part[hidden], .pk-tab[hidden]");
+}
+
+function initLong(t) {
+  if (skipped(t) || t.hasAttribute("data-pk-done")) return;
+  var rows = rowsOf(t), want = t.getAttribute("data-pk-preview");
+  if (want === "all") return;
+  var preview = parseInt(want, 10) || PREVIEW;
+  if (rows.length < Math.max(MIN_ROWS, preview + 2)) return;
+  if (!want) {
+    /* Chrome lays out a closed fold's content at zero size rather than not at
+     * all, and a part hidden "until found" keeps its old boxes, so "has a
+     * box" is not "can be measured": ask about the fold and the part. */
+    if (hiddenNow(t)) { if (undecided.indexOf(t) < 0) undecided.push(t); return; }
+    if (!tooTall(t)) return;
+  }
+  var cut = preview;
+  for (var i = 0; i < cut && i < rows.length; i++)
+    each(rows[i].cells, function (c) { if (c.rowSpan > 1) cut = Math.max(cut, i + c.rowSpan); });
+  if (rows.length - cut < 2) return;
+  t.setAttribute("data-pk-done", "");
+  rows.forEach(function (r, n) { if (n >= cut) r.classList.add("pk-more"); });
+  rows[cut - 1].classList.add("pk-edge");
+  /* The control sits after the table's scroll wrapper, so it stays in view
+   * when a wide table is scrolled sideways. */
+  var p = t.parentElement, box = t;
+  if (p && p.children.length === 1 && /(auto|scroll)/.test(getComputedStyle(p).overflowX)) box = p;
+  var bar = doc.createElement("div");
+  bar.className = "pk-morebar";
+  var btn = doc.createElement("button");
+  btn.type = "button";
+  btn.className = "pk-morebtn";
+  btn.setAttribute("aria-controls", [].map.call(t.tBodies, function (b) {
+    if (!b.id) b.id = "pk-tb" + (++seq);
+    return b.id;
+  }).join(" "));
+  var note = doc.createElement("span");
+  note.className = "pk-morenote";
+  note.setAttribute("aria-live", "polite");
+  bar.appendChild(btn);
+  bar.appendChild(note);
+  box.parentNode.insertBefore(bar, box.nextSibling);
+  var rec = { table: t, box: box, btn: btn, note: note, cut: cut, total: rows.length, open: false };
+  btn.addEventListener("click", function () { setOpen(rec, !rec.open, true); });
+  longTables.push(rec);
+  setOpen(rec, false, false);
+  initTools(rec, rows);
+}
+
+/* ── 1b. Filter and sort a long table ─────────────────────────────────────
+ * A table long enough to fold to its first rows also gets a filter box above
+ * it and sortable column headings. The filter matches the words in a row,
+ * ignoring case and macrons, shows every matching row (the fold opens while a
+ * filter is set) and says how many match. A heading is a button: ascending,
+ * then descending, then the table's own order again, said to a screen reader
+ * through aria-sort. Numbers sort as numbers (thousands separators and a
+ * trailing % allowed), everything else in New Zealand English order with
+ * numbers inside words compared as numbers, and empty cells last either way.
+ * Not on a table with more than one body or heading row, or whose cells span
+ * rows or whose headings span columns, where moving a row would break the
+ * rows around it; off with data-pk-tools="off". On paper every row prints. */
+function plain(s) { return String(s).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+function toolsFit(t, rows) {
+  if (t.closest('[data-pk-tools="off"]') || t.tBodies.length !== 1 || !t.tHead || t.tHead.rows.length !== 1) return false;
+  var spans = false;
+  each(t.tHead.rows[0].cells, function (c) { if (c.colSpan > 1 || c.rowSpan > 1) spans = true; });
+  rows.forEach(function (r) { each(r.cells, function (c) { if (c.rowSpan > 1) spans = true; }); });
+  return !spans;
+}
+function sortKey(text) {
+  var s = text.replace(/[\s,]/g, "").replace(/%$/, "");
+  return /^[-+]?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : null;
+}
+var COLLATE = window.Intl && Intl.Collator ? new Intl.Collator("en-NZ", { numeric: true, sensitivity: "base" }) : null;
+function initTools(rec, rows) {
+  var t = rec.table;
+  if (!toolsFit(t, rows)) return;
+  var body = t.tBodies[0], original = rows.slice();
+  /* Cells joined by a space: a filter matches words a reader can see, never
+   * the end of one cell run into the start of the next. */
+  var words = original.map(function (r) {
+    return plain([].map.call(r.cells, function (c) { return c.textContent; }).join(" ").replace(/\s+/g, " "));
+  });
+  var tools = el("div", "pk-tabletools"), box = el("input", "pk-filter"), count = el("span", "pk-filtercount");
+  box.type = "search";
+  box.placeholder = "Filter these " + rec.total.toLocaleString("en-NZ") + " rows";
+  box.setAttribute("aria-label", "Filter the rows of this table");
+  count.setAttribute("aria-live", "polite");
+  tools.appendChild(box);
+  tools.appendChild(count);
+  rec.box.parentNode.insertBefore(tools, rec.box);
+  var wasOpen = null, timer = null;
+  function filter() {
+    var q = plain(box.value.trim()), shown = 0;
+    original.forEach(function (r, i) {
+      var hit = !q || words[i].indexOf(q) >= 0;
+      r.classList.toggle("pk-filtered", !hit);
+      if (hit) shown++;
+    });
+    if (q) {
+      if (wasOpen === null) wasOpen = rec.open;
+      if (!rec.open) setOpen(rec, true, false);
+      rec.btn.parentNode.hidden = true;
+      count.textContent = shown.toLocaleString("en-NZ") + " of " + rec.total.toLocaleString("en-NZ") + " rows match";
+    } else {
+      rec.btn.parentNode.hidden = false;
+      if (wasOpen !== null && wasOpen !== rec.open) setOpen(rec, wasOpen, false);
+      wasOpen = null;
+      count.textContent = "";
+    }
+    rebuildAll();
+  }
+  box.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(filter, 120); });
+  rec.clearFilter = function () { if (box.value) { box.value = ""; filter(); } };
+  var heads = [].slice.call(t.tHead.rows[0].cells), state = { col: -1, dir: 0 };
+  heads.forEach(function (th, col) {
+    if (!th.textContent.trim()) return;
+    var b = el("button", "pk-sortbtn"), mark = el("span", "pk-sortmark");
+    b.type = "button";
+    mark.setAttribute("aria-hidden", "true");
+    while (th.firstChild) b.appendChild(th.firstChild);
+    b.appendChild(mark);
+    th.appendChild(b);
+    th.setAttribute("data-pk-col", String(col));
+    th.setAttribute("aria-sort", "none");
+    b.addEventListener("click", function () { sortBy(col); });
+  });
+  function sortBy(col) {
+    var dir = state.col === col ? (state.dir + 1) % 3 : 1;
+    state = { col: col, dir: dir };
+    var order = original.slice();
+    if (dir) {
+      var vals = order.map(function (r) { return r.cells[col] ? cellText(r.cells[col]) : ""; });
+      var nums = vals.map(sortKey);
+      var numeric = vals.every(function (v, i) { return !v || nums[i] !== null; }) && nums.some(function (n) { return n !== null; });
+      var idx = order.map(function (r, i) { return i; });
+      idx.sort(function (a, b) {
+        var va = vals[a], vb = vals[b];
+        if (!va || !vb) return !va && !vb ? a - b : (!va ? 1 : -1);
+        var d = numeric ? nums[a] - nums[b] : (COLLATE ? COLLATE.compare(va, vb) : (va < vb ? -1 : va > vb ? 1 : 0));
+        return (dir === 2 ? -d : d) || a - b;
+      });
+      order = idx.map(function (i) { return original[i]; });
+    }
+    order.forEach(function (r) { body.appendChild(r); });
+    order.forEach(function (r, n) {
+      r.classList.toggle("pk-more", n >= rec.cut);
+      r.classList.toggle("pk-edge", n === rec.cut - 1);
+    });
+    heads.forEach(function (th, i) {
+      if (th.hasAttribute("data-pk-col"))
+        th.setAttribute("aria-sort", i === col && dir ? (dir === 1 ? "ascending" : "descending") : "none");
+    });
+    rebuildAll();
+  }
+}
+function retryUndecided() {
+  var wait = undecided;
+  undecided = [];
+  wait.forEach(initLong);
+}
+
+function openTableHolding(el) {
+  if (!el || !el.closest) return;
+  var hid = el.closest("tr.pk-filtered");
+  if (hid) longTables.forEach(function (r) { if (r.table.contains(hid) && r.clearFilter) r.clearFilter(); });
+  var t = el.closest("table.pk-collapsed");
+  if (!t) return;
+  longTables.forEach(function (r) { if (r.table === t) setOpen(r, true, false); });
+}
+function openAllTables() { longTables.forEach(function (r) { if (!r.open) setOpen(r, true, false); }); }
+var shutForPrint = [];
+on("table", initLong);
+on("shown", retryUndecided);
+on("open", openTableHolding);
+on("find", openAllTables);
+on("print", function () {
+  shutForPrint = longTables.filter(function (r) { return !r.open; });
+  shutForPrint.forEach(function (r) { setOpen(r, true, false); });
+});
+on("unprint", function () {
+  shutForPrint.forEach(function (r) { setOpen(r, false, false); });
+  shutForPrint = [];
+});
+/* pk:end long-tables */
+
+/* pk:feature cells */
+function cellText(c) {
+  var k = cleanCell(c);
+  each(k.querySelectorAll("br"), function (b) { b.replaceWith(" "); });
+  return k.textContent.replace(/\s+/g, " ").trim();
+}
+/* A cell as the reader sees it, without the page's own controls. */
+function cleanCell(c) {
+  var k = c.cloneNode(true);
+  each(k.querySelectorAll(".pk-sortmark"), function (n) { n.remove(); });
+  each(k.querySelectorAll(".pk-sortbtn"), function (n) { n.replaceWith.apply(n, [].slice.call(n.childNodes)); });
+  each(k.querySelectorAll("button, script, style, svg, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
+  return k;
+}
+/* pk:end cells */
+
+/* pk:feature pinned-headings */
+/* ── 2. Table headings stay in view ────────────────────────────────────────
+ * When a table's own heading row has scrolled off the top and the table is
+ * still on screen, a copy of the heading row is pinned to the top, matched
+ * column for column and following any sideways scroll. A copy, not CSS
+ * `position: sticky`, because sticky cannot escape the sideways-scroll
+ * wrapper that wide tables need. The copy is hidden from screen readers,
+ * which already have the real heading row. */
+var floats = [];
+
+var COPY = ["backgroundColor", "color", "fontWeight", "fontSize", "fontFamily",
+  "textAlign", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+  "borderBottomWidth", "borderBottomStyle", "borderBottomColor", "lineHeight",
+  "verticalAlign", "letterSpacing", "textTransform", "whiteSpace"];
+
+function initFloat(t) {
+  if (skipped(t) || !t.tHead || !t.tHead.rows.length) return;
+  var p = t.parentElement, scroller = null;
+  if (p && /(auto|scroll)/.test(getComputedStyle(p).overflowX)) scroller = p;
+  var shell = doc.createElement("div");
+  shell.className = "pk-float";
+  shell.setAttribute("aria-hidden", "true");
+  var copy = doc.createElement("table");
+  copy.className = t.className.replace(/\bpk-\S+/g, "").trim();
+  shell.appendChild(copy);
+  doc.body.appendChild(shell);
+  var rec = { table: t, scroller: scroller, shell: shell, copy: copy, built: 0 };
+  if (scroller) scroller.addEventListener("scroll", function () { place(rec, stickyTop()); }, { passive: true });
+  floats.push(rec);
+}
+
+function build(rec) {
+  var head = rec.table.tHead, ths = head.querySelectorAll("th, td");
+  var clone = head.cloneNode(true);
+  each(clone.querySelectorAll("[id]"), function (n) { n.removeAttribute("id"); });
+  if (clone.id) clone.removeAttribute("id");
+  var cells = clone.querySelectorAll("th, td");
+  each(ths, function (th, i) {
+    var cs = getComputedStyle(th), w = th.getBoundingClientRect().width, c = cells[i];
+    COPY.forEach(function (k) { c.style[k] = cs[k]; });
+    if (cs.backgroundColor === "rgba(0, 0, 0, 0)" || cs.backgroundColor === "transparent")
+      c.style.backgroundColor = getComputedStyle(doc.body).backgroundColor;
+    c.style.width = c.style.minWidth = c.style.maxWidth = w + "px";
+    c.style.boxSizing = "border-box";
+  });
+  each(clone.querySelectorAll("button"), function (b) { b.tabIndex = -1; });
+  rec.copy.innerHTML = "";
+  rec.copy.appendChild(clone);
+  rec.copy.style.width = rec.table.getBoundingClientRect().width + "px";
+  rec.built = rec.table.getBoundingClientRect().width;
+}
+
+function place(rec, top) {
+  var t = rec.table, r = t.getBoundingClientRect(), hh = t.tHead.getBoundingClientRect().height;
+  var show = r.width > 0 && r.top < top && r.bottom - hh * 2 > top && t.getClientRects().length &&
+    !t.closest(".pk-part[hidden]");
+  if (!show) { if (rec.shell.style.display !== "none") rec.shell.style.display = "none"; return; }
+  if (Math.abs(rec.built - r.width) > 0.5 || !rec.copy.firstChild) build(rec);
+  var clip = rec.scroller ? rec.scroller.getBoundingClientRect() : r;
+  rec.shell.style.display = "block";
+  rec.shell.style.top = top + "px";
+  rec.shell.style.left = clip.left + "px";
+  rec.shell.style.width = clip.width + "px";
+  rec.copy.style.transform = "translateX(" + (r.left - clip.left) + "px)";
+}
+/* A heading clicked in a pinned copy sorts the real table. */
+function sortFromCopy(e) {
+  var b = e.target && e.target.closest ? e.target.closest(".pk-float .pk-sortbtn") : null;
+  if (!b) return;
+  var th = b.closest("th, td"), shell = b.closest(".pk-float");
+  floats.forEach(function (f) {
+    if (f.shell !== shell) return;
+    var real = f.table.querySelector('th[data-pk-col="' + th.getAttribute("data-pk-col") + '"] .pk-sortbtn');
+    if (real) real.click();
+  });
+}
+on("table", initFloat);
+on("built", function () { doc.addEventListener("click", sortFromCopy); });
+on("frame", function (top) { floats.forEach(function (f) { place(f, top); }); });
+on("relayout", function () { floats.forEach(function (f) { f.built = -1; }); });
+/* pk:end pinned-headings */
+
+/* pk:feature charts */
 /* ── 7. Charts draw themselves when they come into view ───────────────────
  * Bars rise from their baseline, timeline bars grow left to right in date
  * order, and the bars inside table cells fill, each once, when the reader
@@ -963,11 +1133,6 @@ function initTheme() {
  * Never runs when the reader's system asks for reduced motion, without
  * IntersectionObserver, or on paper: those show the finished figure. */
 var motion = [];
-function num(el, a) { var v = parseFloat(el.getAttribute(a)); return isNaN(v) ? null : v; }
-function boxOf(svg) {
-  var vb = svg.viewBox && svg.viewBox.baseVal;
-  return vb && vb.width ? { w: vb.width, h: vb.height } : null;
-}
 function rectsOf(svg) {
   var out = [];
   each(svg.querySelectorAll("rect"), function (r) {
@@ -1092,7 +1257,59 @@ function initMotion() {
     io.observe(t);
   });
 }
+on("built", initMotion);
+on("print", function () { motion.forEach(landed); });
+/* pk:end charts */
 
+/* pk:feature pane */
+/* The pane down the right holds whatever a control opens in it: an
+ * identifier's whole entry, or a picture to copy. A control inside it that is
+ * not its close button is handed to whichever feature put it there. */
+var pane = null, paneFrom = null;
+function paneShow(head, body, foot, label, from) {
+  if (!pane) {
+    pane = el("aside", "pk-pane");
+    pane.setAttribute("role", "dialog");
+    pane.setAttribute("aria-modal", "false");
+    pane.tabIndex = -1;
+    doc.body.appendChild(pane);
+    pane.addEventListener("click", function (e) {
+      var x = e.target.closest ? e.target.closest(".pk-paneclose, .pk-inpane") : null;
+      if (!x) return;
+      e.preventDefault();
+      if (x.classList.contains("pk-paneclose")) closePane(); else fire("inpane", x);
+    });
+  }
+  pane.innerHTML = '<div class="pk-panehead">' + head +
+    '<button type="button" class="pk-paneclose" aria-label="Close">×</button></div>' +
+    '<div class="pk-panebody">' + body + "</div>" + (foot ? '<div class="pk-panefoot">' + foot + "</div>" : "");
+  pane.setAttribute("aria-label", label);
+  if (from) paneFrom = from;
+  root.classList.add("pk-paneopen");
+  pane.scrollTop = 0;
+  try { pane.focus({ preventScroll: true }); } catch (e) {}
+  return pane;
+}
+function closePane() {
+  root.classList.remove("pk-paneopen");
+  if (paneFrom) try { paneFrom.focus({ preventScroll: true }); } catch (e) {}
+  paneFrom = null;
+}
+/* A click outside the pane, or Escape, closes it, whatever opened it. */
+function initPane() {
+  doc.addEventListener("click", function (e) {
+    if (!pane || !root.classList.contains("pk-paneopen") || !e.target.closest) return;
+    if (e.target.closest(".pk-pane, a.pk-ref[data-pk-ref], .pk-copymenu")) return;
+    closePane();
+  }, true);
+  doc.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && root.classList.contains("pk-paneopen")) closePane();
+  });
+}
+on("built", initPane);
+/* pk:end pane */
+
+/* pk:feature cards */
 /* ── 8. Identifiers explain themselves ────────────────────────────────────
  * An identifier the page's build linked (a.pk-ref, with its entry in the
  * page's #pk-refdata block) shows a short card when the pointer rests on it or
@@ -1100,11 +1317,9 @@ function initMotion() {
  * the whole entry in a pane down the right, with a link to its source; an
  * identifier whose entry is on this page goes there instead. Ctrl- or
  * Cmd-click follows the link as written. */
-var refData = {}, tip = null, tipFor = null, tipT = 0, pane = null, paneFrom = null;
+var refData = {}, tip = null, tipFor = null, tipT = 0;
 function refOf(a) { return refData[a.getAttribute("data-pk-ref")]; }
-function clip(t, n) { return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, "") + "…"; }
 function chip(l) { return l ? '<span class="pk-lvl">' + esc(l.toUpperCase()) + "</span>" : ""; }
-function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 function inPage(a) { var h = a.getAttribute("data-pk-href") || a.getAttribute("href") || ""; return h.charAt(0) === "#"; }
 function showTip(a) {
   var r = refOf(a);
@@ -1141,32 +1356,6 @@ function linkIds(h) {
   var rx = new RegExp("\\b(" + ids.map(function (i) { return i.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|") + ")\\b", "g");
   return h.replace(rx, '<button type="button" class="pk-ref pk-inpane" data-pk-ref="$1">$1</button>');
 }
-/* The pane down the right holds whatever a control opens in it: an
- * identifier's whole entry (here), or a picture to copy (section 9). */
-function paneShow(head, body, foot, label, from) {
-  if (!pane) {
-    pane = el("aside", "pk-pane");
-    pane.setAttribute("role", "dialog");
-    pane.setAttribute("aria-modal", "false");
-    pane.tabIndex = -1;
-    doc.body.appendChild(pane);
-    pane.addEventListener("click", function (e) {
-      var x = e.target.closest ? e.target.closest(".pk-paneclose, .pk-inpane") : null;
-      if (!x) return;
-      e.preventDefault();
-      if (x.classList.contains("pk-paneclose")) closePane(); else openPane(x);
-    });
-  }
-  pane.innerHTML = '<div class="pk-panehead">' + head +
-    '<button type="button" class="pk-paneclose" aria-label="Close">×</button></div>' +
-    '<div class="pk-panebody">' + body + "</div>" + (foot ? '<div class="pk-panefoot">' + foot + "</div>" : "");
-  pane.setAttribute("aria-label", label);
-  if (from) paneFrom = from;
-  root.classList.add("pk-paneopen");
-  pane.scrollTop = 0;
-  try { pane.focus({ preventScroll: true }); } catch (e) {}
-  return pane;
-}
 function openPane(a) {
   var id = a.getAttribute("data-pk-ref"), r = refData[id];
   if (!r) return;
@@ -1188,11 +1377,6 @@ function openPane(a) {
     out.setAttribute("href", r.u);
     if (r.x) { out.target = "_blank"; out.rel = "noopener"; }
   }
-}
-function closePane() {
-  root.classList.remove("pk-paneopen");
-  if (paneFrom) try { paneFrom.focus({ preventScroll: true }); } catch (e) {}
-  paneFrom = null;
 }
 function initRefs() {
   var block = doc.getElementById("pk-refdata");
@@ -1225,46 +1409,16 @@ function initRefs() {
   }, true);
   doc.addEventListener("keydown", function (e) { if (e.key === "Escape") hideTip(); });
 }
-/* A click outside the pane, or Escape, closes it, whatever opened it. */
-function initPane() {
-  doc.addEventListener("click", function (e) {
-    if (!pane || !root.classList.contains("pk-paneopen") || !e.target.closest) return;
-    if (e.target.closest(".pk-pane, a.pk-ref[data-pk-ref], .pk-copymenu")) return;
-    closePane();
-  }, true);
-  doc.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && root.classList.contains("pk-paneopen")) closePane();
-  });
-}
+on("built", initRefs);
+on("inpane", openPane);
+/* pk:end cards */
 
-/* ── 9. Take a copy of a table or a diagram ──────────────────────────────
- * A small copy button sits at the top right of every table and diagram, shown
- * when the pointer is over it or the button has keyboard focus. Its menu:
- *   a table:   Copy table (pastes as a table into Word, Excel or an email:
- *              HTML for documents, tab-separated text for spreadsheets),
- *              Save as CSV;
- *   a diagram: Copy as picture (PNG), Copy as SVG (for drawing tools),
- *              Save as PNG, Save as SVG.
- * Pictures and SVG are always taken in the light scheme, at twice the screen
- * size, with the styles each shape is drawn with written into it, so they
- * look the same pasted anywhere.
- *
- * Measured in SharePoint Online's file viewer (November 2026, Chrome 158): the
- * frame is sandboxed "allow-scripts allow-forms" with no clipboard permission,
- * so the browser's clipboard API is refused, downloads and pop-ups are
- * blocked, but the older copy command works (a table arrived as HTML and as
- * tab-separated text, macrons intact) and a diagram can still be drawn as a
- * picture. So: text and tables go by the copy command everywhere; a picture
- * goes by the clipboard API where a page is allowed it, and otherwise opens in
- * the pane, where the browser's own Copy image and Save image work; and the
- * Save items are not offered inside such a frame (a sandboxed frame has an
- * opaque origin, which is how it is recognised).
- * Off for one table or figure with  data-pk-copy="off". */
-var LOCKED = FRAMED && String(window.origin) === "null";
+/* pk:feature clipboard */
+/* What copying out shares: the copy command, a notice that says what was
+ * copied, the copy icon, and the places no copy button goes. */
 var COPY_OFF = '[data-pk-copy="off"], [data-pk="off"], .pk-panel, .pk-pane, .pk-float, .pk-copymenu, button, a';
-var copyMenu = null, copyFor = null, copyShown = null, toast = null, toastT = 0;
+var toast = null, toastT = 0;
 ICON.copy = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg>';
-
 function notify(msg) {
   if (!toast) { toast = el("div", "pk-toast"); toast.setAttribute("role", "status"); doc.body.appendChild(toast); }
   toast.textContent = msg;
@@ -1295,6 +1449,33 @@ function copyAs(flavours) {
   try { if (back) back.focus({ preventScroll: true }); } catch (e) {}
   return done;
 }
+/* pk:end clipboard */
+
+/* pk:feature copy-out */
+/* ── 9. Take a copy of a table or a diagram ──────────────────────────────
+ * A small copy button sits at the top right of every table and diagram, shown
+ * when the pointer is over it or the button has keyboard focus. Its menu:
+ *   a table:   Copy table (pastes as a table into Word, Excel or an email:
+ *              HTML for documents, tab-separated text for spreadsheets),
+ *              Save as CSV;
+ *   a diagram: Copy as picture (PNG), Copy as SVG (for drawing tools),
+ *              Save as PNG, Save as SVG.
+ * Pictures and SVG are always taken in the light scheme, at twice the screen
+ * size, with the styles each shape is drawn with written into it, so they
+ * look the same pasted anywhere.
+ *
+ * Measured in SharePoint Online's file viewer (November 2026, Chrome 158): the
+ * frame is sandboxed "allow-scripts allow-forms" with no clipboard permission,
+ * so the browser's clipboard API is refused, downloads and pop-ups are
+ * blocked, but the older copy command works (a table arrived as HTML and as
+ * tab-separated text, macrons intact) and a diagram can still be drawn as a
+ * picture. So: text and tables go by the copy command everywhere; a picture
+ * goes by the clipboard API where a page is allowed it, and otherwise opens in
+ * the pane, where the browser's own Copy image and Save image work; and the
+ * Save items are not offered inside such a frame (a sandboxed frame has an
+ * opaque origin, which is how it is recognised).
+ * Off for one table or figure with  data-pk-copy="off". */
+var copyMenu = null, copyFor = null, copyShown = null;
 function saveAs(name, blob) {
   var a = el("a");
   a.href = URL.createObjectURL(blob);
@@ -1337,19 +1518,6 @@ function grid(t) {
     });
   });
   return rows.filter(Boolean);
-}
-function cellText(c) {
-  var k = cleanCell(c);
-  each(k.querySelectorAll("br"), function (b) { b.replaceWith(" "); });
-  return k.textContent.replace(/\s+/g, " ").trim();
-}
-/* A cell as the reader sees it, without the page's own controls. */
-function cleanCell(c) {
-  var k = c.cloneNode(true);
-  each(k.querySelectorAll(".pk-sortmark"), function (n) { n.remove(); });
-  each(k.querySelectorAll(".pk-sortbtn"), function (n) { n.replaceWith.apply(n, [].slice.call(n.childNodes)); });
-  each(k.querySelectorAll("button, script, style, svg, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
-  return k;
 }
 function tableHtml(t) {
   var out = doc.createElement("table");
@@ -1628,7 +1796,73 @@ function initCopy() {
   doc.addEventListener("toggle", replace, true);
   addEventListener("resize", replace);
 }
+on("built", initCopy);
+/* pk:end copy-out */
 
+/* pk:feature copy-blocks */
+/* ── 11. Copy a code or message block ─────────────────────────────────────
+ * A block a reader will want to paste somewhere else carries a labelled copy
+ * button above its top right corner, always visible: every <pre> code or text
+ * box ("Copy code"), every .pk-message block such as a draft message ("Copy
+ * message"), and any element naming its own label with data-pk-copy-label.
+ * The copy goes by the copy command, which works inside SharePoint's,
+ * OneDrive's and Teams' viewers where the clipboard API is refused: plain text
+ * for code, plain text and formatted HTML for a message, so it pastes into an
+ * email keeping its paragraphs. Where even that is refused, the block's text
+ * is selected for the reader's own Ctrl+C. Off for a block, or everything
+ * inside an element, with data-pk-copy="off". */
+var BLOCKCOPY = 'pre, .pk-message, [data-pk-copy-label]';
+var BLOCKCOPY_OFF = COPY_OFF + ', .pane, .toolbar, [role="dialog"], figure, table, header, nav';
+function blockLabel(b) {
+  var own = b.getAttribute("data-pk-copy-label");
+  if (own) return own;
+  return b.tagName === "PRE" ? "Copy code" : "Copy message";
+}
+function blockFlavours(b) {
+  if (b.tagName === "PRE") return { "text/plain": b.textContent.replace(/\n$/, "") };
+  var k = b.cloneNode(true);
+  each(k.querySelectorAll("button, script, style, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
+  return { "text/plain": (b.innerText || b.textContent).replace(/\n{3,}/g, "\n\n").trim(), "text/html": k.innerHTML.trim() };
+}
+function selectBlock(b) {
+  try { var s = getSelection(), r = doc.createRange(); r.selectNodeContents(b); s.removeAllRanges(); s.addRange(r); } catch (e) {}
+}
+function addBlockCopy(b) {
+  var label = blockLabel(b), wrap = el("div", "pk-blockwrap"), bar = el("div", "pk-blockbar");
+  var btn = el("button", "pk-blockcopy", ICON.copy + "<span>" + esc(label) + "</span>");
+  btn.type = "button";
+  b.parentNode.insertBefore(wrap, b);
+  bar.appendChild(btn);
+  wrap.appendChild(bar);
+  wrap.appendChild(b);
+  b.setAttribute("data-pk-copy-done", "");
+  var span = btn.querySelector("span"), back = null;
+  btn.addEventListener("click", function () {
+    if (copyAs(blockFlavours(b))) {
+      span.textContent = "Copied";
+      notify("Copied to the clipboard");
+    } else {
+      selectBlock(b);
+      span.textContent = label;
+      notify("Press Ctrl+C (⌘C on a Mac) to copy the selected text");
+      return;
+    }
+    clearTimeout(back);
+    back = setTimeout(function () { span.textContent = label; }, 2000);
+  });
+}
+function initBlockCopy() {
+  each(doc.querySelectorAll(BLOCKCOPY), function (b) {
+    if (b.closest(BLOCKCOPY_OFF) || b.hasAttribute("data-pk-copy-done") || !b.parentNode) return;
+    if (b.parentElement && b.parentElement.closest(BLOCKCOPY)) return;
+    if (!b.textContent.trim()) return;
+    addBlockCopy(b);
+  });
+}
+on("built", initBlockCopy);
+/* pk:end copy-blocks */
+
+/* pk:feature section-links */
 /* ── 10. A link to any section ────────────────────────────────────────────
  * A link icon beside every heading and fold title that has an id (the build
  * gives each one an id made from its words), shown when the pointer is on the
@@ -1693,179 +1927,21 @@ function initLinks() {
     h.appendChild(b);
   });
 }
-
-/* ── 11. Copy a code or message block ─────────────────────────────────────
- * A block a reader will want to paste somewhere else carries a labelled copy
- * button above its top right corner, always visible: every <pre> code or text
- * box ("Copy code"), every .pk-message block such as a draft message ("Copy
- * message"), and any element naming its own label with data-pk-copy-label.
- * The copy goes by the copy command, which works inside SharePoint's,
- * OneDrive's and Teams' viewers where the clipboard API is refused: plain text
- * for code, plain text and formatted HTML for a message, so it pastes into an
- * email keeping its paragraphs. Where even that is refused, the block's text
- * is selected for the reader's own Ctrl+C. Off for a block, or everything
- * inside an element, with data-pk-copy="off". */
-var BLOCKCOPY = 'pre, .pk-message, [data-pk-copy-label]';
-var BLOCKCOPY_OFF = COPY_OFF + ', .pane, .toolbar, [role="dialog"], figure, table, header, nav';
-function blockLabel(b) {
-  var own = b.getAttribute("data-pk-copy-label");
-  if (own) return own;
-  return b.tagName === "PRE" ? "Copy code" : "Copy message";
-}
-function blockFlavours(b) {
-  if (b.tagName === "PRE") return { "text/plain": b.textContent.replace(/\n$/, "") };
-  var k = b.cloneNode(true);
-  each(k.querySelectorAll("button, script, style, .pk-sr, .sr-only, [aria-hidden=true], [hidden]"), function (n) { n.remove(); });
-  return { "text/plain": (b.innerText || b.textContent).replace(/\n{3,}/g, "\n\n").trim(), "text/html": k.innerHTML.trim() };
-}
-function selectBlock(b) {
-  try { var s = getSelection(), r = doc.createRange(); r.selectNodeContents(b); s.removeAllRanges(); s.addRange(r); } catch (e) {}
-}
-function addBlockCopy(b) {
-  var label = blockLabel(b), wrap = el("div", "pk-blockwrap"), bar = el("div", "pk-blockbar");
-  var btn = el("button", "pk-blockcopy", ICON.copy + "<span>" + esc(label) + "</span>");
-  btn.type = "button";
-  b.parentNode.insertBefore(wrap, b);
-  bar.appendChild(btn);
-  wrap.appendChild(bar);
-  wrap.appendChild(b);
-  b.setAttribute("data-pk-copy-done", "");
-  var span = btn.querySelector("span"), back = null;
-  btn.addEventListener("click", function () {
-    if (copyAs(blockFlavours(b))) {
-      span.textContent = "Copied";
-      notify("Copied to the clipboard");
-    } else {
-      selectBlock(b);
-      span.textContent = label;
-      notify("Press Ctrl+C (⌘C on a Mac) to copy the selected text");
-      return;
-    }
-    clearTimeout(back);
-    back = setTimeout(function () { span.textContent = label; }, 2000);
-  });
-}
-function initBlockCopy() {
-  each(doc.querySelectorAll(BLOCKCOPY), function (b) {
-    if (b.closest(BLOCKCOPY_OFF) || b.hasAttribute("data-pk-copy-done") || !b.parentNode) return;
-    if (b.parentElement && b.parentElement.closest(BLOCKCOPY)) return;
-    if (!b.textContent.trim()) return;
-    addBlockCopy(b);
-  });
-}
-
-/* ── 12. Tabs within a section ────────────────────────────────────────────
- * A <div class="pk-tabs"> holding two or more <section class="pk-tab"> shows
- * one pane at a time under a row of tabs: options side by side in a decision
- * paper, say. A tab is named by its pane's data-pk-title, else by the pane's
- * first heading, which the tab then stands in for on screen. The tabs follow
- * the usual pattern for tabs: Left and Right move between them (Home and End
- * to the ends) and the pane follows. A pane not shown is hidden "until found"
- * where the browser offers it, so find-in-page still reaches it; elsewhere
- * the find shortcut shows every pane. Search, links and print reach every
- * pane. With scripting off, or on paper, every pane shows under its heading. */
-var tabGroups = [];
-function tabOf(n) { return n && n.closest ? n.closest(".pk-tabs > .pk-tab") : null; }
-function selectTab(g, i, opts) {
-  opts = opts || {};
-  g.every = false;
-  g.box.classList.remove("pk-tabs-every");
-  g.panes.forEach(function (p, k) {
-    var on = k === i;
-    g.tabs[k].setAttribute("aria-selected", on ? "true" : "false");
-    g.tabs[k].tabIndex = on ? 0 : -1;
-    if (on) p.removeAttribute("hidden"); else conceal(p);
-  });
-  g.current = i;
-  if (opts.focus) try { g.tabs[i].focus(); } catch (e) {}
-  if (opts.hash) setHash(g.panes[i].id);
-  retryUndecided();
-  rebuildAll();
-}
-/* Every pane at once, each under its own heading: for find-in-page where
- * the browser cannot reveal a hidden match. A tab click returns to one. */
-function everyTab(g) {
-  g.every = true;
-  g.box.classList.add("pk-tabs-every");
-  g.panes.forEach(function (p, k) { p.removeAttribute("hidden"); g.tabs[k].setAttribute("aria-selected", "false"); });
-  retryUndecided();
-  rebuildAll();
-}
-/* Opens the pane holding n, and any pane holding that, outward. */
-function openTabHolding(n) {
-  var p = tabOf(n);
-  while (p) {
-    tabGroups.forEach(function (g) {
-      var i = g.panes.indexOf(p);
-      if (i >= 0 && !g.every && i !== g.current) selectTab(g, i);
-    });
-    p = tabOf(p.parentElement);
-  }
-}
-function initTabs() {
-  each(doc.querySelectorAll(".pk-tabs"), function (box, gi) {
-    var panes = [].filter.call(box.children, function (c) { return c.classList.contains("pk-tab"); });
-    if (panes.length < 2 || box.querySelector(":scope > .pk-tablist")) return;
-    var list = el("div", "pk-tablist"), g = { box: box, panes: panes, tabs: [], current: 0, every: false };
-    list.setAttribute("role", "tablist");
-    var name = box.getAttribute("aria-label") || box.getAttribute("data-pk-title");
-    if (name) list.setAttribute("aria-label", name);
-    panes.forEach(function (p, k) {
-      var h = p.querySelector("h2, h3, h4, h5"), own = p.getAttribute("data-pk-title");
-      var b = el("button");
-      b.type = "button";
-      b.setAttribute("role", "tab");
-      b.id = "pk-tabbtn-" + (gi + 1) + "-" + (k + 1);
-      b.textContent = own || (h ? words(h) : "") || "Tab " + (k + 1);
-      /* The tab names the pane on screen, so a heading it was named from is
-       * kept for screen readers, every-pane view and paper only. */
-      if (!own && h && h === p.firstElementChild) h.classList.add("pk-tabhead");
-      idFor(p, "tab-" + (gi + 1) + "-" + (k + 1));
-      b.setAttribute("aria-controls", p.id);
-      p.setAttribute("role", "tabpanel");
-      p.setAttribute("aria-labelledby", b.id);
-      if (!p.hasAttribute("tabindex")) p.tabIndex = 0;
-      b.addEventListener("click", function () { selectTab(g, k, { hash: true }); });
-      p.addEventListener("beforematch", function () { if (!g.every && g.current !== k) selectTab(g, k); });
-      list.appendChild(b);
-      g.tabs.push(b);
-    });
-    list.addEventListener("keydown", function (e) {
-      var n = g.tabs.length, i = g.tabs.indexOf(e.target), j = -1;
-      if (i < 0) return;
-      if (e.key === "ArrowRight") j = (i + 1) % n;
-      else if (e.key === "ArrowLeft") j = (i + n - 1) % n;
-      else if (e.key === "Home") j = 0;
-      else if (e.key === "End") j = n - 1;
-      if (j < 0) return;
-      e.preventDefault();
-      selectTab(g, j, { focus: true, hash: true });
-    });
-    box.insertBefore(list, panes[0]);
-    box.classList.add("pk-tabbed");
-    tabGroups.push(g);
-    selectTab(g, 0);
-  });
-}
+on("built", initLinks);
+/* pk:end section-links */
 
 /* ── wiring ─────────────────────────────────────────────────────────────── */
 function init() {
   root.classList.add("pk", "pk-js");
+  root.setAttribute("data-pk-kit", KIT);
   each(doc.querySelectorAll("table"), function (t) {
     if (t.closest(".pk-float")) return;
-    initLong(t);
-    initFloat(t);
+    fire("table", t);
   });
   if (OWN) initParts();
-  initTabs();
+  fire("start");
   buildPanel();
-  initMotion();
-  initRefs();
-  initPane();
-  initCopy();
-  initBlockCopy();
-  doc.addEventListener("click", sortFromCopy);
-  initLinks();
+  fire("built");
   initTheme();
   watchScheme();
   tame(doc);
@@ -1875,14 +1951,15 @@ function init() {
   }
   addEventListener("scroll", floatAll, { passive: true });
   addEventListener("resize", function () { rebuildAll(); if (innerWidth >= PANEL_MIN) drawer(false); });
-  doc.addEventListener("toggle", function () { retryUndecided(); rebuildAll(); foldLabel(); }, true);
+  doc.addEventListener("toggle", function () { fire("shown"); rebuildAll(); foldLabel(); }, true);
   /* Find-in-page cannot search rows that are not drawn, or a part where the
-   * browser cannot reveal hidden matches, so the shortcut opens them first. */
+   * browser cannot reveal hidden matches, so the shortcut opens them first:
+   * the parts, then every tab, then the long tables, so a table that could
+   * not be measured until its part or tab showed opens too. */
   doc.addEventListener("keydown", function (e) {
     if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === "f" || e.key === "F")) {
-      openAllTables();
       if (parts.length && !UNTIL_FOUND && !allMode) showAll();
-      if (!UNTIL_FOUND) tabGroups.forEach(function (g) { if (!g.every) everyTab(g); });
+      fire("find");
     }
     if (e.key === "Escape" && root.classList.contains("pk-drawer")) drawer(false);
   });
@@ -1892,7 +1969,7 @@ function init() {
     /* A page the kit was added to keeps its own links, except inside a
      * viewer's frame, where the browser cannot follow a "#" link in a
      * sandboxed document and the kit has to (measured in both engines). */
-    if (!OWN && !FRAMED) { openTabHolding(t); openTableHolding(t); return; }
+    if (!OWN && !FRAMED) { fire("open", t); return; }
     e.preventDefault();
     go(t, id);
   }
@@ -1916,21 +1993,17 @@ function init() {
      * but a link to a fold's title, which is on screen already, opens nothing,
      * so the fold it names is opened here (measured in both engines). */
     else if (t.tagName === "SUMMARY" && t.parentNode && !t.parentNode.open) { reveal(t); }
-    else if (t.closest && t.closest("table.pk-collapsed")) { openTabHolding(t); openTableHolding(t); try { t.scrollIntoView(); } catch (e) {} }
-    else if (tabOf(t) && tabOf(t).hasAttribute("hidden")) { openTabHolding(t); try { t.scrollIntoView(); } catch (e) {} }
+    else if (t.closest && t.closest("table.pk-collapsed, .pk-tabs > .pk-tab[hidden]")) { fire("open", t); try { t.scrollIntoView(); } catch (e) {} }
   }
   addEventListener("hashchange", arrive);
   if (location.hash) arrive();
-  var shut = [], was = null;
+  var was = null;
   addEventListener("beforeprint", function () {
-    motion.forEach(landed);
-    shut = longTables.filter(function (r) { return !r.open; });
-    shut.forEach(function (r) { setOpen(r, true, false); });
+    fire("print");
     if (parts.length && !allMode) { was = current; showAll(); }
   });
   addEventListener("afterprint", function () {
-    shut.forEach(function (r) { setOpen(r, false, false); });
-    shut = [];
+    fire("unprint");
     if (was) { showPart(was, { scroll: false, quiet: true }); was = null; }
   });
   floatAll();
