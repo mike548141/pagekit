@@ -435,9 +435,18 @@ var NAV_OFF = '[data-pk-nav="off"]', FIND_OFF = '[data-pk-find="off"]';
 /* The entries, read from what the page already says about itself: its parts;
  * else its own contents bar; else its h2 headings; else its panel titles. */
 function gather() {
-  if (parts.length >= 2) return parts.map(function (p, i) {
-    return { el: p, num: String(i + 1), title: p.getAttribute("data-pk-title") || words(p.querySelector("h2") || p), part: p };
-  });
+  if (parts.length >= 2) {
+    /* A part titled "Part 2 · Costs" keeps its own number; when any part does,
+     * a part without one goes unnumbered rather than out of step. */
+    var ent = parts.map(function (p) {
+      var t = p.getAttribute("data-pk-title") || words(p.querySelector("h2") || p);
+      return { p: p, t: t, m: t.match(/^Part\s+([0-9A-Z]+)\s*[·:.\-–—]\s*(.+)$/i) };
+    });
+    var own = ent.some(function (x) { return x.m; });
+    return ent.map(function (x, i) {
+      return { el: x.p, num: x.m ? x.m[1] : (own ? "" : String(i + 1)), title: x.m ? x.m[2] : x.t, part: x.p };
+    });
+  }
   var list = [], toc = doc.querySelector("nav.toc");
   if (toc) {
     var links = toc.querySelectorAll(".parts a[href^='#']");

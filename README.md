@@ -64,7 +64,9 @@ or on paper, the page shows everything.
 - **Parts.** Two or more `<section class="pk-part">` (or `parts=` in `page`)
   show one at a time, chosen in the panel. The rest of the file stays
   reachable through links, search, find-in-page and print, and "Show all parts
-  on one page" shows everything. With scripting off, every part shows. A page
+  on one page" shows everything. With scripting off, every part shows. Parts
+  are numbered in order, except that a part titled "Part 2 · Costs" keeps its
+  own number, and beside such parts one without a number goes unnumbered. A page
   made another way becomes parts with `mark_parts(html, cls)`: every
   `<section>` carrying the class `cls` turns into a part, titled by its first
   h2 (without a number shown beside it), and its in-page links are then

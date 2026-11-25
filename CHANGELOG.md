@@ -49,3 +49,6 @@
 - `tools/probe.py`: the defined-term check moves the mouse away before each
   hover, since two terms can sit at the same screen point once each is
   scrolled into view and a hover that does not move the mouse shows nothing.
+- A part titled "Part 2 · Costs" keeps its own number in the parts panel and
+  the contents; beside such parts, a part with no number of its own is shown
+  unnumbered rather than out of step.

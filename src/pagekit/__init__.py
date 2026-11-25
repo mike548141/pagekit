@@ -1029,22 +1029,30 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
     if parts and len(parts) >= 2:
         seen: set[str] = set()
         items, sections = [], []
+        # A part titled "Part 2 · Costs" keeps its own number; when any part
+        # does, a part without one is shown unnumbered rather than out of step.
+        own = [_OWN_NUMBER.match(p["title"]) for p in parts]
         for n, p in enumerate(parts, 1):
             pid = p.get("id") or "part-" + slug(p["title"])
             while pid in seen:
                 pid += "-2"
             seen.add(pid)
             summ = p.get("summary") or ""
+            m = own[n - 1]
+            num = m.group(1) if m else ("" if any(own) else str(n))
+            label = m.group(2) if m else p["title"]
             items.append(
                 f'<li><a href="#{esc(pid)}" data-pk-part="{esc(pid)}">'
-                f'<span class="pk-pn">{n}</span><span class="pk-pt">{esc(p["title"])}</span>'
+                + (f'<span class="pk-pn">{esc(num)}</span>' if num else "")
+                + f'<span class="pk-pt">{esc(label)}</span>'
                 + (f'<span class="pk-ps">{esc(summ)}</span>' if summ else "") + "</a></li>")
             show_summary = p.get("show_summary", True)
             sections.append(
                 f'<section class="pk-part" id="{esc(pid)}" aria-labelledby="{esc(pid)}-h" '
                 f'data-pk-title="{esc(p["title"])}">'
-                f'<h2 class="pk-part-title" id="{esc(pid)}-h"><span class="pk-pn">{n}</span> '
-                f'{esc(p["title"])}</h2>'
+                f'<h2 class="pk-part-title" id="{esc(pid)}-h">'
+                + ("" if m or not num else f'<span class="pk-pn">{num}</span> ')
+                + f'{esc(p["title"])}</h2>'
                 + (f'<p class="pk-part-summary">{esc(summ)}</p>' if summ and show_summary else "")
                 + f'{p["html"]}</section>')
         selector = ('<nav class="pk-parts" aria-label="Parts of this document" data-pk-sticky>'
@@ -1078,6 +1086,10 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
     doc = nfc(doc)
     doc = set_marks(doc, marking, watermark)
     return set_published(doc, published) if published else doc
+
+
+#: "Part 2 · Costs": a part title that carries its own number.
+_OWN_NUMBER = re.compile(r"^Part\s+([0-9A-Z]+)\s*[·:.\-–—]\s*(.+)$", re.I)
 
 
 # ── compose: existing pages as the parts of one file ────────────────────────

@@ -424,3 +424,20 @@ def test_terms_leave_a_glossary_list_a_message_and_headings_alone():
             "<tbody><tr><td>mulch</td></tr></tbody></table></body></html>")
     out = kit.link_terms(page, GLOSSARY, "words.html")
     assert _terms(out) == [("#mulch", "Mulch")], "only the table cell, linked in-page on the glossary's own page"
+
+
+def test_a_part_titled_with_its_own_number_keeps_it():
+    """"Part 0 · Soil" is numbered 0, not by its place; a part with no number
+    of its own, beside such parts, goes unnumbered."""
+    parts = [{"title": "Overview", "html": "<p>a</p>"},
+             {"title": "Part 0 · Soil", "html": "<p>b</p>"},
+             {"title": "Part 1 · Seeds", "html": "<p>c</p>"}]
+    out = kit.page("Season report", parts=parts)
+    nav = out[out.index('<nav class="pk-parts"'):out.index("</nav>", out.index('<nav class="pk-parts"'))]
+    assert '<span class="pk-pn">0</span><span class="pk-pt">Soil</span>' in nav
+    assert '<span class="pk-pn">1</span><span class="pk-pt">Seeds</span>' in nav
+    assert '<a href="#part-overview" data-pk-part="part-overview"><span class="pk-pt">Overview</span>' in nav
+    assert '<h2 class="pk-part-title" id="part-part-0-soil-h">Part 0 · Soil</h2>' in out
+    plain = kit.page("Season report", parts=[{"title": "Soil", "html": "x"}, {"title": "Seeds", "html": "y"}])
+    assert '<span class="pk-pn">2</span><span class="pk-pt">Seeds</span>' in plain
+
