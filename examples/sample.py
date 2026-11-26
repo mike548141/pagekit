@@ -3,7 +3,8 @@
 
 The subject is an invented community garden's season report. Every name,
 place and figure is invented. The page is the kit's own test bed: three
-parts, long and wide tables, folds, tabs, defined terms, a drawing and a chart, callouts, chips,
+parts in two groups, long and wide tables, folds, tabs, defined terms, a drawing and a chart,
+ideas and needs shown by level, callouts, chips,
 links across parts, an outside link, and te reo Māori with macrons (one word
 deliberately written decomposed, to prove the build composes it).
 
@@ -237,6 +238,13 @@ def part_goals() -> str:
 <p>This part sets out the goals we chose for the garden and where each one stands.</p>
 <div class="pk-tablewrap"><table><thead><tr><th>#</th><th>Goal</th><th>Where we are</th></tr></thead>
 <tbody>{rows}</tbody></table></div>
+<h3 id="ideas">Ideas for next season</h3>
+<p>Every idea the groups put forward, marked by how much we want it. The buttons show one level at a
+time; an idea marked with two levels shows under both.</p>
+{ideas()}
+<h3 id="shed-needs">What the new shed has to do</h3>
+<p>The list the builder will work from.</p>
+{shed_needs()}
 <h3 id="why">Why these five</h3>
 <p>They follow from the plots in <a href="#register">part 1</a> and the season in
 <a href="#log">part 2</a>, and from what other gardens have written (GS-02, GS-03). Ideas for more are welcome on the garden's page, for example
@@ -257,6 +265,39 @@ Makaurau, whānau, tūāpapa. Capitals too: Ā Ē Ī Ō Ū.</p>
 """
 
 
+#: Ideas for next season, each with the levels it carries.
+IDEAS = [
+    ("A second glasshouse", "Room for twice the seedlings, so the holiday club can grow its own.", "should"),
+    ("Rain tanks on the shed", "Two tanks would water the glasshouse through a dry February.", "must"),
+    ("A seed library", "Saved seed in jars by the gate, free to anyone who brings some back.", "could"),
+    ("Paths wide enough for a wheelchair", "Gravel paths a metre and a half wide to every raised bed.", "must"),
+    ("A pizza oven", "For working bees, and a reason for neighbours to drop in.", "could"),
+    ("A worm farm", "Kitchen scraps from the hall turned into food for the beds.", "should could"),
+]
+
+#: What the new shed has to do, each with its level.
+SHED = [
+    ("Lock, with a key for each group", "must"), ("Hold every hand tool on a wall rack", "must"),
+    ("Keep seed dry and cool", "must"), ("Shelter a working bee of twenty from the rain", "should"),
+    ("Carry gutters into the rain tanks", "should"), ("Have a window onto the glasshouse", "could"),
+    ("Charge a battery mower", "could"), ("Seat six for morning tea", "should"),
+]
+
+
+def ideas() -> str:
+    cards = "".join(f'<li class="pk-card" data-pk-levels="{lv}"><h4>{t}</h4><p>{d}</p>'
+                    + "".join(f'<span class="pk-chip">{x.capitalize()}</span> ' for x in lv.split())
+                    + "</li>" for t, d, lv in IDEAS)
+    return (f'<ul class="pk-cards" data-pk-filter="must = Must have, should = Should have, could = Could have"'
+            f' data-pk-filter-label="Show ideas by level">{cards}</ul>')
+
+
+def shed_needs() -> str:
+    rows = "".join(f'<li data-pk-levels="{lv}"><span class="pk-chip">{lv.capitalize()}</span> {t}</li>'
+                   for t, lv in SHED)
+    return f'<ol data-pk-filter="must, should, could" data-pk-filter-label="Show the shed\'s needs by level">{rows}</ol>'
+
+
 def build() -> str:
     logo = "data:image/svg+xml;base64," + base64.b64encode(LOGO_SVG.encode()).decode()
     return pagekit.link_terms(pagekit.link_sources(pagekit.page(
@@ -268,11 +309,11 @@ def build() -> str:
         byline="Prepared by the garden committee", meta=["Version 1", "Invented content"],
         description="A PageKit sample page with invented content.",
         parts=[
-            {"id": "plots", "title": "What we grew",
+            {"id": "plots", "title": "What we grew", "group": "The season",
              "summary": "240 plots, who looked after them, and how each went", "html": part_plots()},
             {"id": "the-season", "title": "How the season went",
              "summary": "The site, and every working day of the season", "html": part_season()},
-            {"id": "goals", "title": "Our goals",
+            {"id": "goals", "title": "Our goals", "group": "What comes next",
              "summary": "Five goals and where we stand on each", "html": part_goals()},
         ],
         footer="Example Trust · Te Rōpū Tauira · invented content for showing the template",

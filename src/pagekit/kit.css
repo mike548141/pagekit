@@ -37,7 +37,11 @@ h2.pk-part-title { margin-top: 0; padding-top: .4rem; display: flex; gap: .6rem;
 h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant-numeric: tabular-nums; }
 .pk-part-summary { font-size: 1.05rem; color: var(--pk-muted); margin-top: -.2rem; }
 .pk-part + .pk-part { margin-top: 3rem; }
-.pk-js .pk-one .pk-part + .pk-part { margin-top: 0; }
+/* One part at a time, the parts not shown are hidden "until found": they keep
+ * a box of no height, but a margin would still stack up above the part shown
+ * (eleven parts above it, eleven gaps). pk-js and pk-one are both on <html>,
+ * so the two classes sit on one element. */
+.pk-js.pk-one .pk-part + .pk-part { margin-top: 0; }
 .pk-partnav { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: space-between; margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--pk-line); }
 .pk-partnav a { display: flex; flex-direction: column; max-width: 48%; padding: .6rem .9rem; border: 1px solid var(--pk-line); border-radius: 8px; text-decoration: none; color: var(--pk-ink); }
 .pk-partnav a:hover { border-color: var(--pk-solid); }
@@ -45,6 +49,17 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
 .pk-partnav a b { color: var(--pk-accent); font-weight: 650; }
 .pk-partnav .pk-next { margin-left: auto; text-align: right; }
 .pk-all .pk-partnav { display: none; }
+/* part groups: a label above each group's parts, in the panel and the no-script list */
+.pk-parts .pk-parts-group, .pk-glabel { margin: .9rem 0 .3rem; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pk-muted); }
+.pk-glabel { margin: 12px 9px 4px; font-size: 11.5px; }
+.pk-g:first-child .pk-glabel { margin-top: 2px; }
+/* the title block, one part at a time: whole with the first part, and past it
+ * the document's title alone, on one line; the rest is hidden "until found" */
+.pk-heroaway[hidden="until-found"] { margin: 0 !important; padding: 0 !important; border: 0 !important; }
+@media screen {
+  .pk-js.pk-one.pk-later .pk-hero { padding-top: 14px; padding-bottom: 2px; }
+  .pk-js.pk-one.pk-later .pk-hero h1 { font-size: 1.15rem; line-height: 1.3; max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 
 /* ── the panel: contents, search and controls, down the left ──────────── */
 .pk { --pk-panel-w: 300px; }
@@ -150,6 +165,7 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
   .pk-paneled body { padding-left: 0 !important; padding-top: 0 !important; }
   .pk-has-parts { display: block !important; }
   .pk-part, .pk-part[hidden] { display: block !important; content-visibility: visible !important; }
+  .pk-heroaway[hidden] { display: block !important; content-visibility: visible !important; }
   .pk-part + .pk-part { break-before: page; margin-top: 0; }
 }
 
@@ -175,6 +191,17 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
   .pk-tab, .pk-tab[hidden] { display: block !important; content-visibility: visible !important; }
 }
 /* pk:end tabs */
+
+/* pk:feature level-filter */
+/* 13. show items by level: a row of buttons above the items, and a count */
+.pk-levelbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: 1rem 0 .7rem; }
+.pk-levelbtns { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pk-levelbtn[aria-pressed="true"] { background: var(--pk-bg); border-color: var(--pk-solid); box-shadow: inset 0 0 0 1px var(--pk-solid), inset 0 -3px 0 var(--pk-solid); }
+.pk-levn { margin-left: .15em; font-weight: normal; color: var(--pk-muted); font-variant-numeric: tabular-nums; }
+.pk-levelcount { font-size: .85rem; color: var(--pk-muted); }
+@media screen { .pk-lvl-out, .pk-blockwrap:has(> .pk-lvl-out) { display: none !important; } }
+@media print { .pk-levelbar { display: none !important; } }
+/* pk:end level-filter */
 
 /* pk:feature long-tables */
 /* ── long tables: the rows beyond the preview, and the control ──────────── */

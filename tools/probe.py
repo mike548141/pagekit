@@ -22,7 +22,8 @@ and at a laptop width and a phone width. It records every script error, then
 exercises the features the page has (parts, long tables, pinned headings,
 links into hidden places, charts that draw when seen, copying a table or a
 diagram out and a link to a section (by real mouse clicks), tabs within a
-section (by real clicks and keys), defined terms, a link arriving
+section (by real clicks and keys), the title block one part at a time,
+showing items by level (by real clicks and keys), defined terms, a link arriving
 into a closed section, the theme switch, reduced motion, print) and checks each did what
 it should. Screenshots go to ``--shots``.
 
@@ -113,6 +114,25 @@ async () => {
     add('selector shows part 2 only', vis(parts[1]) && parts.filter(vis).length === 1 && links[1].getAttribute('aria-current') === 'true');
     const loud = d.querySelector('.pk-toast.pk-on');
     add('a part change is announced to screen readers only', !loud, loud ? 'shown on screen: ' + loud.textContent : '');
+    // Parts not shown keep a box of no height; no margin may stack up above the part shown.
+    const lastL = links[parts.length - 1]; lastL.click(); await wait(250);
+    const box = parts[0].parentElement, bs = getComputedStyle(box);
+    const room = parts[parts.length - 1].getBoundingClientRect().top - box.getBoundingClientRect().top
+      - parseFloat(bs.paddingTop) - parseFloat(bs.borderTopWidth);
+    add('no space stacks above a part shown alone', vis(parts[parts.length - 1]) && room < 4,
+        Math.round(room) + 'px above part ' + parts.length + ' of ' + parts.length);
+    const starts = parts.filter(p => (p.getAttribute('data-pk-group') || '').trim());
+    if (starts.length) {
+      const labs = [...d.querySelectorAll('.pk-panel .pk-glabel')];
+      const lists = [...d.querySelectorAll('.pk-panel ol.pk-l1[aria-labelledby]')];
+      const named = lists.every(o => { const l = d.getElementById(o.getAttribute('aria-labelledby')); return l && labs.includes(l) && o.previousElementSibling === l; });
+      const nums = links.map(a => (a.querySelector('.pk-pn') || {}).textContent || '');
+      const run = nums.every((n, i) => n === '' || n === String(i + 1)) || nums.some(n => !/^\d+$/.test(n));
+      add('part groups are labelled in the panel', labs.length === starts.length && lists.length === starts.length && named
+          && labs.map(l => l.textContent).join('|') === starts.map(p => p.getAttribute('data-pk-group').trim()).join('|') && run,
+          labs.map(l => l.textContent).join(' · ') + '; numbers ' + nums.join(','));
+    }
+    links[1].click(); await wait(250);
     const nx = parts[1].querySelector('.pk-partnav .pk-next');
     if (nx) { nx.click(); await wait(250); add('next-part link moves on', vis(parts[2]) && !vis(parts[1])); }
     links[0].click(); await wait(250);
@@ -253,7 +273,7 @@ FOOTPRINT = r"""async () => {
   if (all && !d.documentElement.classList.contains('pk-all')) all.click();
   await wait(500);
   const has = s => !!d.querySelector(s);
-  const marks = {'tabs': '.pk-tablist', 'long-tables': '.pk-morebar', 'pinned-headings': '.pk-float',
+  const marks = {'tabs': '.pk-tablist', 'level-filter': '.pk-levelbar', 'long-tables': '.pk-morebar', 'pinned-headings': '.pk-float',
     'charts': '.pk-mo', 'copy-out': '.pk-copybtn', 'copy-blocks': '.pk-blockcopy', 'section-links': '.pk-linkbtn',
     'cards': 'a.pk-ref[data-pk-title]'};
   const acted = Object.keys(marks).filter(k => has(marks[k]));
@@ -704,6 +724,161 @@ def tab_checks(pg, frame, mode: str) -> list:
     return out
 
 
+# The title block, one part at a time: whole with the first part, the title
+# alone past it, whole again with every part shown and on paper; its words
+# are still found, and finding them shows the first part.
+HERO_STATE = r"""async (k) => { const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  const hero = d.querySelector('.pk-hero'), parts = [...d.querySelectorAll('.pk-part')];
+  if (!hero || parts.length < 2 || hero.closest('.pk-part')) return null;
+  const links = [...d.querySelectorAll('.pk-panel .pk-a1')];
+  if (k === 'all') { const b = d.querySelector('.pk-allbtn'); if (!d.documentElement.classList.contains('pk-all')) b.click(); }
+  else if (k !== null) links[k].click();
+  await wait(300);
+  const away = [...hero.querySelectorAll('.pk-heroaway')].concat(hero.classList.contains('pk-heroaway') ? [hero] : []);
+  const seen = e => e.getClientRects().length > 0 && e.getBoundingClientRect().height > 0;
+  const h1 = hero.querySelector('h1');
+  return {away: away.length, shown: away.filter(seen).length, h1: !!h1 && seen(h1), h1s: d.querySelectorAll('h1').length,
+          height: Math.round(hero.getBoundingClientRect().height)}; }"""
+HERO_SEARCH = r"""async () => { const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  const q = d.querySelector('.pk-panel input[type=search]'), away = d.querySelector('.pk-hero .pk-heroaway');
+  const parts = [...d.querySelectorAll('.pk-part')];
+  const para = away && [...away.querySelectorAll('*')].concat([away]).find(x => /[a-z]{6,}/i.test(x.textContent));
+  if (!q || !para) return null;
+  const word = para.textContent.match(/[a-z]{6,}/i)[0];
+  q.value = word; q.dispatchEvent(new Event('input', {bubbles: true})); await wait(400);
+  const hit = [...d.querySelectorAll('.pk-panel .pk-rlist a')].find(a => {
+    const t = d.getElementById((a.getAttribute('href') || a.getAttribute('data-pk-href') || '').slice(1)); return t && t.closest('.pk-hero'); });
+  if (hit) { hit.click(); await wait(500); }
+  const ok = !!hit && !parts[0].hidden && away.getBoundingClientRect().height > 0;
+  q.value = ''; q.dispatchEvent(new Event('input', {bubbles: true})); await wait(150);
+  return [word, ok]; }"""
+
+
+def hero_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    first = frame.evaluate(HERO_STATE, 0)
+    if not first or not first["away"]:
+        return out
+    later = frame.evaluate(HERO_STATE, 1)
+    out.append(["the title block shows whole with the first part only",
+                first["shown"] == first["away"] and later["shown"] == 0 and later["h1"] and later["h1s"] == 1
+                and later["height"] < first["height"],
+                f"{first['height']}px with part 1, {later['height']}px with part 2; "
+                f"{later['shown']} of {later['away']} other pieces shown there"])
+    found = frame.evaluate(HERO_SEARCH)
+    if found:
+        out.append(["search reaches the title block from a later part and shows the first part", found[1], repr(found[0])])
+    frame.evaluate(HERO_STATE, 1)
+    pg.emulate_media(media="print")
+    printed = frame.evaluate(HERO_STATE, None)
+    pg.emulate_media(media="screen")
+    every = frame.evaluate(HERO_STATE, "all")
+    frame.evaluate("() => { const b = document.querySelector('.pk-allbtn'); if (document.documentElement.classList.contains('pk-all')) b.click(); }")
+    frame.evaluate(HERO_STATE, 0)
+    out.append(["the title block shows whole with every part, and on paper",
+                every["shown"] == every["away"] and printed["shown"] == printed["away"],
+                f"every part: {every['shown']} of {every['away']}; paper: {printed['shown']} of {printed['away']}"])
+    return out
+
+
+# Showing items by level: a container's buttons show the items carrying a
+# level, say so, and a search, link or the find shortcut reaching an item not
+# shown, or paper, shows them all again.
+LEVEL_PICK = r"""async () => { const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  const bar = [...d.querySelectorAll('.pk-levelbar')].find(b => !b.closest('details:not([open])'));
+  if (!bar) return null;
+  const part = bar.closest('.pk-part');
+  if (part && part.hidden) { const a = [...d.querySelectorAll('.pk-panel .pk-a1')].find(l => (l.getAttribute('href') || l.getAttribute('data-pk-href')) === '#' + part.id); if (a) { a.click(); await wait(300); } }
+  d.querySelectorAll('[data-probe-level]').forEach(x => x.removeAttribute('data-probe-level'));
+  [...bar.querySelectorAll('button')].forEach((b, i) => b.setAttribute('data-probe-level', i));
+  bar.scrollIntoView({block: 'start', behavior: 'instant'}); await wait(150);
+  return bar.querySelectorAll('button').length; }"""
+LEVEL_STATE = r"""() => { const d = document, bar = d.querySelector('[data-probe-level]').closest('.pk-levelbar');
+  const btns = [...bar.querySelectorAll('button')], key = (btns.find(b => b.getAttribute('aria-pressed') === 'true') || {}).dataset;
+  const box = d.getElementById(btns[0].getAttribute('aria-controls'));
+  const items = [...box.querySelectorAll('[data-pk-levels]')].filter(n => n.parentElement.closest('[data-pk-filter]') === box);
+  // A row a long table holds back behind its first rows counts as shown: the level did not hide it.
+  const seen = e => (e.getClientRects().length > 0 && e.getBoundingClientRect().height > 0)
+    || (!e.classList.contains('pk-lvl-out') && e.matches('table.pk-collapsed tr.pk-more'));
+  const k = key ? key.pkLevel : null;
+  const want = items.filter(n => !k || n.dataset.pkLevels.toLowerCase().split(/[\s,]+/).includes(k));
+  return {key: k, pressed: btns.filter(b => b.getAttribute('aria-pressed') === 'true').length,
+          shown: items.filter(seen).length, want: want.length, right: items.every(n => seen(n) === want.includes(n)),
+          total: items.length, count: bar.querySelector('.pk-levelcount').textContent,
+          live: bar.querySelector('.pk-levelcount').getAttribute('aria-live'), focus: btns.indexOf(d.activeElement)}; }"""
+LEVEL_HIDDEN = r"""() => { const d = document, bar = d.querySelector('[data-probe-level]').closest('.pk-levelbar');
+  const box = d.getElementById(bar.querySelector('button').getAttribute('aria-controls'));
+  // Words from one element with no children, so two elements' words never run together.
+  const leaf = n => [n, ...n.querySelectorAll('*')].filter(x => !x.children.length && /[a-z]{6,}/i.test(x.textContent));
+  const out = [...box.querySelectorAll('.pk-lvl-out')].find(n => leaf(n).length);
+  if (!out) return null;
+  const words = leaf(out).flatMap(x => x.textContent.match(/[a-z]{6,}/gi)), all = d.body.textContent;
+  // a word the hidden item holds that is rare on the page, so the search lands on it
+  const word = words.sort((a, b) => all.split(a).length - all.split(b).length)[0];
+  out.setAttribute('data-probe-out', '1');
+  return word; }"""
+LEVEL_SEARCH = r"""async (word) => { const d = document, wait = ms => new Promise(r => setTimeout(r, ms));
+  const q = d.querySelector('.pk-panel input[type=search]'), out = d.querySelector('[data-probe-out]');
+  if (!q) return null;
+  q.value = word; q.dispatchEvent(new Event('input', {bubbles: true})); await wait(400);
+  const hit = [...d.querySelectorAll('.pk-panel .pk-rlist a')].find(a => {
+    const t = d.getElementById((a.getAttribute('href') || a.getAttribute('data-pk-href') || '').slice(1)); return t && out.contains(t); });
+  if (hit) { hit.click(); await wait(500); }
+  const ok = !!hit && out.getBoundingClientRect().height > 0;
+  q.value = ''; q.dispatchEvent(new Event('input', {bubbles: true})); await wait(150);
+  out.removeAttribute('data-probe-out');
+  return ok; }"""
+
+
+def level_checks(pg, frame, mode: str) -> list:
+    out: list = []
+    n = frame.evaluate(LEVEL_PICK)
+    if not n or n < 2:
+        return out
+    s0 = frame.evaluate(LEVEL_STATE)
+    frame.locator('[data-probe-level="1"]').click()
+    pg.wait_for_timeout(250)
+    s1 = frame.evaluate(LEVEL_STATE)
+    out.append(["a level shows only its items and says how many",
+                s0["key"] == "" and s0["shown"] == s0["total"] and s0["right"] and s1["key"] and s1["pressed"] == 1 and s1["right"]
+                and s1["shown"] == s1["want"] < s1["total"] and s1["count"] == f"{s1['shown']} of {s1['total']} shown"
+                and s1["live"] == "polite",
+                f"{s1['key']}: {s1['shown']} of {s1['total']} shown; count says {s1['count']!r}"])
+    # WebKit neither focuses a button on a click nor tabs to one by default
+    # (Safari's own setting), so the focus is put on the next button directly.
+    frame.locator('[data-probe-level="2"]').focus()
+    pg.keyboard.press("Space")
+    pg.wait_for_timeout(250)
+    s2 = frame.evaluate(LEVEL_STATE)
+    out.append(["a level is picked from the keyboard",
+                s2["focus"] == 2 and s2["key"] and s2["key"] != s1["key"] and s2["right"] and s2["pressed"] == 1,
+                f"focus on button {s2['focus'] + 1}, showing {s2['key']}"])
+    word = frame.evaluate(LEVEL_HIDDEN)
+    if word:
+        ok = frame.evaluate(LEVEL_SEARCH, word)
+        if ok is not None:
+            s3 = frame.evaluate(LEVEL_STATE)
+            out.append(["search reaches an item not shown and shows every level", ok and s3["key"] == "" and s3["right"],
+                        repr(word)])
+    frame.evaluate(LEVEL_PICK)
+    frame.locator('[data-probe-level="1"]').click()
+    pg.wait_for_timeout(200)
+    pg.keyboard.press("Control+f")
+    pg.wait_for_timeout(250)
+    s4 = frame.evaluate(LEVEL_STATE)
+    out.append(["the find shortcut shows every level", s4["key"] == "" and s4["shown"] == s4["total"],
+                f"{s4['shown']} of {s4['total']} shown"])
+    frame.locator('[data-probe-level="1"]').click()
+    pg.wait_for_timeout(200)
+    pg.emulate_media(media="print")
+    s5 = frame.evaluate(LEVEL_STATE)
+    pg.emulate_media(media="screen")
+    frame.locator('[data-probe-level="0"]').click()
+    out.append(["paper shows every item whatever level is picked", s5["key"] and s5["shown"] == s5["total"],
+                f"{s5['shown']} of {s5['total']} printed with {s5['key']} picked"])
+    return out
+
+
 # A defined term: its card names it and gives its meaning; a click on one
 # defined on this page lands on the definition, on one defined elsewhere opens
 # the pane with the meaning.
@@ -824,6 +999,14 @@ def run(page_path: Path, shots: Path | None, chromium: str | None, webkit: str |
                         checks += tab_checks(pg, frame, mode)
                     except Exception as e:
                         checks.append(["tabs within a section", False, str(e).splitlines()[0][:160]])
+                    try:
+                        checks += hero_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["the title block", False, str(e).splitlines()[0][:160]])
+                    try:
+                        checks += level_checks(pg, frame, mode)
+                    except Exception as e:
+                        checks.append(["showing items by level", False, str(e).splitlines()[0][:160]])
                     try:
                         checks += block_checks(pg, frame, mode)
                     except Exception as e:

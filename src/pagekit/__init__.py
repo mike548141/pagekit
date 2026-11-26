@@ -272,6 +272,7 @@ def assets(features: Iterable[str] | None = None) -> tuple[str, str]:
 #: page is built (`features_needed`); nobody keeps a list per page.
 FEATURES: dict[str, tuple[str, ...]] = {
     "tabs": (),
+    "level-filter": (),
     "long-tables": ("cells",),
     "pinned-headings": (),
     "charts": (),
@@ -418,6 +419,8 @@ class _Uses(HTMLParser):
             self.found.add("copy-blocks")
         if tag == "a" and "pk-ref" in cls and a.get("data-pk-ref", "off") != "off":
             self.found.add("cards")
+        if a.get("data-pk-filter", "off").strip() not in ("", "off"):
+            self.found.add("level-filter")
         if "pk-tabs" in cls:
             rec.update(kind="tabs", panes=0)
         if "pk-tab" in cls and self.stack and self.stack[-1][3].get("kind") == "tabs":
@@ -1303,7 +1306,10 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
 
     ``parts`` is a list of ``{"id", "title", "summary", "html"}``; with two or
     more, the reader picks one part at a time from the selector, and with
-    scripting off every part shows in order behind a plain contents list.
+    scripting off every part shows in order behind a plain contents list. A
+    part may carry ``"group"``, a label that starts a group of parts running
+    to the next part that carries one ("The story", "Reference"); the
+    contents show each label above its parts, and numbering runs on.
     Without parts, ``body`` is the page's content. Content is HTML the caller
     has already escaped, and so are ``footer``, ``head_extra`` and
     ``body_extra``, which are written as given; every other argument is plain
@@ -1353,6 +1359,10 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
     if parts and len(parts) >= 2:
         seen: set[str] = set()
         items, sections = [], []
+        # A part carrying a group label starts a list of its own, named by the
+        # label; without any, the contents are the one list they always were.
+        grouped = any((p.get("group") or "").strip() for p in parts)
+        groups = 0
         # A part titled "Part 2 · Costs" keeps its own number; when any part
         # does, a part without one is shown unnumbered rather than out of step.
         own = [_OWN_NUMBER.match(p["title"]) for p in parts]
@@ -1365,6 +1375,16 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
             m = own[n - 1]
             num = m.group(1) if m else ("" if any(own) else str(n))
             label = m.group(2) if m else p["title"]
+            group = (p.get("group") or "").strip()
+            if grouped and (group or n == 1):
+                if n > 1:
+                    items.append("</ol>")
+                if group:
+                    groups += 1
+                    items.append(f'<p class="pk-parts-group" id="pk-pg-{groups}">{esc(group)}</p>'
+                                 f'<ol aria-labelledby="pk-pg-{groups}">')
+                else:
+                    items.append("<ol>")
             items.append(
                 f'<li><a href="#{esc(pid)}" data-pk-part="{esc(pid)}">'
                 + (f'<span class="pk-pn">{esc(num)}</span>' if num else "")
@@ -1373,7 +1393,8 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
             show_summary = p.get("show_summary", True)
             sections.append(
                 f'<section class="pk-part" id="{esc(pid)}" aria-labelledby="{esc(pid)}-h" '
-                f'data-pk-title="{esc(p["title"])}">'
+                f'data-pk-title="{esc(p["title"])}"'
+                + (f' data-pk-group="{esc(group)}"' if group else "") + ">"
                 f'<h2 class="pk-part-title" id="{esc(pid)}-h">'
                 + ("" if m or not num else f'<span class="pk-pn">{num}</span> ')
                 + f'{esc(p["title"])}</h2>'
@@ -1381,7 +1402,7 @@ def page(title: str, *, brand: dict | None = None, parts: Sequence[dict] | None 
                 + f'{p["html"]}</section>')
         selector = ('<nav class="pk-parts" aria-label="Parts of this document" data-pk-sticky>'
                     '<p class="pk-parts-label">In this document</p>'
-                    f'<ol>{"".join(items)}</ol></nav>')
+                    + ("".join(items) + "</ol>" if grouped else f'<ol>{"".join(items)}</ol>') + "</nav>")
         content = ('<div class="pk-wrap pk-layout pk-has-parts">'
                    f'<aside class="pk-rail">{selector}</aside>'
                    f'<main id="pk-main" class="{main_cls}" tabindex="-1">{"".join(sections)}</main></div>')

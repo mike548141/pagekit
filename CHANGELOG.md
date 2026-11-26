@@ -38,6 +38,18 @@
 - Defined terms: `link_terms` links the first mention of each glossary term in
   every section to a card with its meaning, and a click goes to where it is
   defined or opens it in the pane with its source.
+- One part at a time, the parts not shown no longer leave a gap above the part
+  shown: the rule meant to remove their margin never matched, so each hidden
+  part above it added 3rem of blank space.
+- Part groups: `"group"` on a part in `page(parts=…)`, or `data-pk-group` on a
+  part's section, labels a group of parts in the panel and the no-script
+  contents; numbering runs on across groups.
+- One part at a time, the title block shows whole only with the first part;
+  past it the page keeps its h1 on one line, and search and find-in-page still
+  reach the rest.
+- Show items by level: `data-pk-filter` on a container and `data-pk-levels` on
+  its items give a row of buttons (All and one per level) that shows only the
+  items carrying a level, with a count read out to screen readers.
 - `tools/probe.py`: the copy check brings the copy button itself to the
   middle of the screen before clicking it, so the check no longer depends on
   where an earlier step left the page (a long table's button could sit under

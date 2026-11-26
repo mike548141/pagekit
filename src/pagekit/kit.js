@@ -178,9 +178,12 @@ function gather() {
       var t = p.getAttribute("data-pk-title") || words(p.querySelector("h2") || p);
       return { p: p, t: t, m: t.match(/^Part\s+([0-9A-Z]+)\s*[·:.\-–—]\s*(.+)$/i) };
     });
+    /* A part carrying data-pk-group starts a group of parts, which runs to the
+     * next part that carries one; the numbers run on across groups. */
     var own = ent.some(function (x) { return x.m; });
     return ent.map(function (x, i) {
-      return { el: x.p, num: x.m ? x.m[1] : (own ? "" : String(i + 1)), title: x.m ? x.m[2] : x.t, part: x.p };
+      return { el: x.p, num: x.m ? x.m[1] : (own ? "" : String(i + 1)), title: x.m ? x.m[2] : x.t, part: x.p,
+               group: (x.p.getAttribute("data-pk-group") || "").trim() };
     });
   }
   var list = [], toc = doc.querySelector("nav.toc");
@@ -308,8 +311,24 @@ function buildPanel() {
   panel.appendChild(results);
   var nav = el("nav", "pk-nav");
   nav.setAttribute("aria-label", "Contents");
-  navList = el("ol", "pk-l1");
+  /* Parts in groups get one list per group, named by the group's label, which
+   * shows above it; a part before the first label sits in a list of its own. */
+  var grouped = tier.some(function (e) { return e.group; }), gn = 0;
+  navList = null;
   tier.forEach(function (e, i) {
+    if (!navList || (grouped && e.group)) {
+      navList = el("ol", "pk-l1");
+      if (grouped) {
+        var g = nav.appendChild(el("div", "pk-g"));
+        if (e.group) {
+          var lab = g.appendChild(el("p", "pk-glabel"));
+          lab.id = "pk-glabel-" + (++gn);
+          lab.textContent = e.group;
+          navList.setAttribute("aria-labelledby", lab.id);
+        }
+        g.appendChild(navList);
+      } else nav.appendChild(navList);
+    }
     var li = el("li", "pk-i1"), a = el("a", "pk-a1");
     a.href = "#" + idFor(e.el, "s" + (i + 1));
     if (e.num) a.appendChild(el("span", "pk-pn")).textContent = e.num;
@@ -319,7 +338,6 @@ function buildPanel() {
     e.a = a;
     navList.appendChild(li);
   });
-  nav.appendChild(navList);
   panel.appendChild(nav);
   if (parts.length >= 2) {
     allBtn = el("button", "pk-btn pk-allbtn");
@@ -555,6 +573,7 @@ function showPart(p, opts) {
   root.classList.remove("pk-all");
   root.classList.add("pk-one");
   parts.forEach(function (q) { if (q === p) q.removeAttribute("hidden"); else conceal(q); });
+  heroFor(p !== parts[0]);
   current = p;
   label(false);
   fire("shown");
@@ -574,15 +593,44 @@ function showAll() {
   root.classList.remove("pk-one");
   root.classList.add("pk-all");
   parts.forEach(function (q) { q.removeAttribute("hidden"); });
+  heroFor(false);
   label(true);
   fire("shown");
   rebuildAll();
   mark(true);
 }
 
+/* The title block (div.pk-hero: a kicker, the h1, a lead, anything else the
+ * page puts there) introduces the whole document, so one part at a time it
+ * shows whole only with the first part. Past the first part it is the h1
+ * alone, on one line, so the page keeps its title on screen and for a screen
+ * reader; the rest is hidden "until found", so find-in-page still reaches it,
+ * and reaching it shows the first part. Every part shown, or on paper, it is
+ * whole. */
+var heroAway = [];
+function initHero() {
+  var hero = doc.querySelector(".pk-hero");
+  if (!hero || partOf(hero)) return;
+  var n = hero.querySelector("h1");
+  if (!n) heroAway = [hero];
+  for (; n && n !== hero; n = n.parentNode)
+    each(n.parentNode.children, function (s) {
+      if (s !== n && !s.hasAttribute("hidden") && !/^(SCRIPT|STYLE|TEMPLATE)$/.test(s.tagName)) heroAway.push(s);
+    });
+  heroAway.forEach(function (s) {
+    s.classList.add("pk-heroaway");
+    s.addEventListener("beforematch", function () { if (!allMode && current !== parts[0]) showPart(parts[0], { scroll: false, quiet: true, hash: false }); });
+  });
+}
+function heroFor(later) {
+  root.classList.toggle("pk-later", later);
+  heroAway.forEach(function (s) { if (later) conceal(s); else s.removeAttribute("hidden"); });
+}
+
 function initParts() {
   parts = [].slice.call(doc.querySelectorAll(".pk-part"));
   if (parts.length < 2) { parts = []; return; }
+  initHero();
   live = el("div", "pk-sr");
   live.setAttribute("aria-live", "polite");
   doc.body.appendChild(live);
@@ -612,6 +660,7 @@ function reveal(t) {
   if (t.tagName === "SUMMARY") d = t.parentNode;
   while (d) { d.open = true; d = d.parentElement ? d.parentElement.closest("details") : null; }
   var p = partOf(t);
+  if (!p && parts.length && heroAway.some(function (s) { return s.contains(t); })) p = parts[0];
   if (p && parts.length && !allMode && p !== current) showPart(p, { scroll: false, hash: false, quiet: false });
   /* Then a tab, then a long table holding it: showing a tab can fold a table
    * that could not be measured while the tab was hidden, so the table opens
@@ -793,6 +842,93 @@ on("start", initTabs);
 on("open", openTabHolding);
 on("find", function () { if (!UNTIL_FOUND) tabGroups.forEach(function (g) { if (!g.every) everyTab(g); }); });
 /* pk:end tabs */
+
+/* pk:feature level-filter */
+/* ── 13. Show items by level ──────────────────────────────────────────────
+ * A container marked data-pk-filter="must, should, could" gets a row of
+ * buttons above it: All, then one per level in the order given, each named
+ * by the page ("must = Must have") or else by its key. Each item inside the
+ * container that carries data-pk-levels="must should" names its levels (one
+ * word each); a level's button shows only the items naming it, and an item
+ * naming several shows under each. An item naming no level always shows.
+ * Items are cards in a grid, blocks in a list, list items or table rows. The
+ * buttons say which is pressed (aria-pressed) and a count says how many show
+ * ("12 of 40 shown"), to a screen reader as well. A link, a search result or
+ * the find shortcut reaching an item not shown goes back to All. With
+ * scripting off, or on paper, every item shows. */
+var levelSets = [];
+function levelSpec(spec) {
+  return spec.split(",").map(function (x) {
+    var at = x.indexOf("="), key = (at < 0 ? x : x.slice(0, at)).trim().toLowerCase().replace(/\s+/g, "-");
+    var name = at < 0 ? "" : x.slice(at + 1).trim();
+    return key ? { key: key, label: name || key.charAt(0).toUpperCase() + key.slice(1) } : null;
+  }).filter(Boolean);
+}
+function pickLevel(s, key) {
+  var shown = 0, first = null;
+  s.key = key;
+  s.items.forEach(function (it) {
+    var on = !key || !it.levels.length || it.levels.indexOf(key) >= 0;
+    it.el.classList.toggle("pk-lvl-out", !on);
+    if (on) { shown++; if (!first) first = it.el; }
+  });
+  s.btns.forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-pk-level") === key ? "true" : "false"); });
+  s.count.textContent = key ? shown + " of " + s.items.length + " shown" : "All " + s.items.length + " shown";
+  /* Rows picked in a long table that shows only its first rows: open it, so
+   * the rows picked are on screen. */
+  if (key && first && first.tagName === "TR" && first.closest("table.pk-collapsed")) fire("open", first);
+  fire("shown");
+  rebuildAll();
+}
+function initLevels() {
+  each(doc.querySelectorAll("[data-pk-filter]"), function (box, si) {
+    var levels = levelSpec(box.getAttribute("data-pk-filter") || "");
+    if (!levels.length || box.getAttribute("data-pk-filter") === "off" || box.hasAttribute("data-pk-filter-done")) return;
+    var items = [].filter.call(box.querySelectorAll("[data-pk-levels]"), function (n) {
+      return n.parentElement.closest("[data-pk-filter]") === box;
+    }).map(function (n) {
+      return { el: n, levels: n.getAttribute("data-pk-levels").toLowerCase().split(/[\s,]+/).filter(Boolean) };
+    });
+    if (!items.length) return;
+    box.setAttribute("data-pk-filter-done", "");
+    var s = { box: box, items: items, btns: [], key: "" };
+    var bar = el("div", "pk-levelbar"), row = el("div", "pk-levelbtns");
+    var name = box.getAttribute("data-pk-filter-label") || box.getAttribute("aria-label") || "Show by level";
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", name);
+    if (!box.id) box.id = "pk-levels-" + (si + 1);
+    [{ key: "", label: box.getAttribute("data-pk-filter-all") || "All" }].concat(levels).forEach(function (l) {
+      var b = el("button", "pk-btn pk-levelbtn"), n = l.key ? items.filter(function (it) { return it.levels.indexOf(l.key) >= 0; }).length : items.length;
+      b.type = "button";
+      b.setAttribute("data-pk-level", l.key);
+      b.setAttribute("aria-controls", box.id);
+      b.appendChild(doc.createTextNode(l.label + " "));
+      b.appendChild(el("span", "pk-levn")).textContent = String(n);
+      b.addEventListener("click", function () { pickLevel(s, l.key); });
+      row.appendChild(b);
+      s.btns.push(b);
+    });
+    s.count = el("span", "pk-levelcount");
+    s.count.setAttribute("aria-live", "polite");
+    bar.appendChild(row);
+    bar.appendChild(s.count);
+    /* Above the container: above its table, or the table's scroll box, when
+     * the items are rows. */
+    var at = box.closest("table") || box, p = at.parentElement;
+    if (at !== box && p && p.children.length === 1 && /(auto|scroll)/.test(getComputedStyle(p).overflowX)) at = p;
+    at.parentNode.insertBefore(bar, at);
+    levelSets.push(s);
+    pickLevel(s, "");
+  });
+}
+function levelsHolding(t) {
+  if (!t || !t.closest || !t.closest(".pk-lvl-out")) return;
+  levelSets.forEach(function (s) { if (s.key && s.box.contains(t)) pickLevel(s, ""); });
+}
+on("start", initLevels);
+on("open", levelsHolding);
+on("find", function () { levelSets.forEach(function (s) { if (s.key) pickLevel(s, ""); }); });
+/* pk:end level-filter */
 
 /* pk:feature long-tables */
 /* ── 1. Long tables show their first rows ─────────────────────────────────
@@ -1507,7 +1643,7 @@ function nameFor(box) {
 function grid(t) {
   var rows = [], taken = [];
   each(t.rows, function (tr, y) {
-    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered")) return;
+    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered") || tr.classList.contains("pk-lvl-out")) return;
     var row = rows[y] = rows[y] || [], x = 0;
     each(tr.cells, function (c) {
       while (row[x] !== undefined) x++;
@@ -1526,7 +1662,7 @@ function tableHtml(t) {
   var out = doc.createElement("table");
   out.setAttribute("style", "border-collapse:collapse;font-family:Calibri,Aptos,Arial,sans-serif;font-size:11pt");
   each(t.rows, function (tr) {
-    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered")) return;
+    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered") || tr.classList.contains("pk-lvl-out")) return;
     var r = out.insertRow(-1);
     each(tr.cells, function (c) {
       var n = doc.createElement(c.tagName === "TH" ? "th" : "td"), k = cleanCell(c);
@@ -1996,7 +2132,7 @@ function init() {
      * but a link to a fold's title, which is on screen already, opens nothing,
      * so the fold it names is opened here (measured in both engines). */
     else if (t.tagName === "SUMMARY" && t.parentNode && !t.parentNode.open) { reveal(t); }
-    else if (t.closest && t.closest("table.pk-collapsed, .pk-tabs > .pk-tab[hidden]")) { fire("open", t); try { t.scrollIntoView(); } catch (e) {} }
+    else if (t.closest && t.closest("table.pk-collapsed, .pk-tabs > .pk-tab[hidden], .pk-lvl-out")) { fire("open", t); try { t.scrollIntoView(); } catch (e) {} }
   }
   addEventListener("hashchange", arrive);
   if (location.hash) arrive();

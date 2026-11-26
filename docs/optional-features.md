@@ -11,7 +11,8 @@ The core is what makes any page readable, whatever is on it:
 
 - the panel: search over the whole document, the contents, the expand and
   collapse control, folding the panel away;
-- parts, one shown at a time;
+- parts, one shown at a time, in labelled groups where the page gives them,
+  with the title block whole only beside the first part;
 - links that land in a closed section, a hidden part or a pane not shown;
 - light and dark;
 - markings and watermarks, and print.
@@ -26,6 +27,7 @@ Everything else is optional (`pagekit.FEATURES`):
 | Feature | Found in the markup as |
 |---|---|
 | `tabs` | a `div.pk-tabs` holding two or more `section.pk-tab` |
+| `level-filter` | any element with `data-pk-filter` naming at least one level (not `off`) |
 | `long-tables` (and filter and sort) | a table with six or more body rows, not in a figure or opted out |
 | `pinned-headings` | a table with a heading row, not in a figure or opted out |
 | `charts` | an SVG with a view box, three or more rectangles and a line, or bars in table cells (`.cbarfill`) |

@@ -219,7 +219,8 @@ h2.pk-part-title { margin-top: 0; padding-top: .4rem; display: flex; gap: .6rem;
 h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant-numeric: tabular-nums; }
 .pk-part-summary { font-size: 1.05rem; color: var(--pk-muted); margin-top: -.2rem; }
 .pk-part + .pk-part { margin-top: 3rem; }
-.pk-js .pk-one .pk-part + .pk-part { margin-top: 0; }
+
+.pk-js.pk-one .pk-part + .pk-part { margin-top: 0; }
 .pk-partnav { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: space-between; margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--pk-line); }
 .pk-partnav a { display: flex; flex-direction: column; max-width: 48%; padding: .6rem .9rem; border: 1px solid var(--pk-line); border-radius: 8px; text-decoration: none; color: var(--pk-ink); }
 .pk-partnav a:hover { border-color: var(--pk-solid); }
@@ -227,6 +228,16 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
 .pk-partnav a b { color: var(--pk-accent); font-weight: 650; }
 .pk-partnav .pk-next { margin-left: auto; text-align: right; }
 .pk-all .pk-partnav { display: none; }
+
+.pk-parts .pk-parts-group, .pk-glabel { margin: .9rem 0 .3rem; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pk-muted); }
+.pk-glabel { margin: 12px 9px 4px; font-size: 11.5px; }
+.pk-g:first-child .pk-glabel { margin-top: 2px; }
+
+.pk-heroaway[hidden="until-found"] { margin: 0 !important; padding: 0 !important; border: 0 !important; }
+@media screen {
+  .pk-js.pk-one.pk-later .pk-hero { padding-top: 14px; padding-bottom: 2px; }
+  .pk-js.pk-one.pk-later .pk-hero h1 { font-size: 1.15rem; line-height: 1.3; max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 
 
 .pk { --pk-panel-w: 300px; }
@@ -326,6 +337,7 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
   .pk-paneled body { padding-left: 0 !important; padding-top: 0 !important; }
   .pk-has-parts { display: block !important; }
   .pk-part, .pk-part[hidden] { display: block !important; content-visibility: visible !important; }
+  .pk-heroaway[hidden] { display: block !important; content-visibility: visible !important; }
   .pk-part + .pk-part { break-before: page; margin-top: 0; }
 }
 
@@ -349,6 +361,15 @@ h2.pk-part-title .pk-pn { font-size: .9em; color: var(--pk-accent); font-variant
   .pk-tablist { display: none !important; }
   .pk-tab, .pk-tab[hidden] { display: block !important; content-visibility: visible !important; }
 }
+
+
+.pk-levelbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: 1rem 0 .7rem; }
+.pk-levelbtns { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pk-levelbtn[aria-pressed="true"] { background: var(--pk-bg); border-color: var(--pk-solid); box-shadow: inset 0 0 0 1px var(--pk-solid), inset 0 -3px 0 var(--pk-solid); }
+.pk-levn { margin-left: .15em; font-weight: normal; color: var(--pk-muted); font-variant-numeric: tabular-nums; }
+.pk-levelcount { font-size: .85rem; color: var(--pk-muted); }
+@media screen { .pk-lvl-out, .pk-blockwrap:has(> .pk-lvl-out) { display: none !important; } }
+@media print { .pk-levelbar { display: none !important; } }
 
 
 table.pk-collapsed tr.pk-more { display: none; }
@@ -500,7 +521,7 @@ button.pk-inpane { font: inherit; color: var(--pk-accent); background: none; bor
 <a class="pk-skip" href="#pk-main">Skip to the content</a>
 <header class="pk-masthead" role="banner"><div class="pk-wrap pk-mast"><div class="pk-brand"><img class="pk-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjgiIGhlaWdodD0iNDQiIHZpZXdCb3g9IjAgMCAxNjggNDQiPjxyZWN0IHg9IjIiIHk9IjYiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgcng9IjciIGZpbGw9IiMyYTdmNjIiLz48cGF0aCBkPSJNMTAgMjggTDE4IDE0IEwyNiAyOCBaIiBmaWxsPSIjZmZmIi8+PHRleHQgeD0iNDQiIHk9IjIwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTMiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxZjNhNWYiPkVYQU1QTEU8L3RleHQ+PHRleHQgeD0iNDQiIHk9IjM2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTMiIGZpbGw9IiMxZjNhNWYiPlRSVVNUPC90ZXh0Pjwvc3ZnPg==" alt="Example Trust"><!-- secretscan:allow: an inline logo image, not a credential --><span class="pk-org"><span class="pk-org-alt" lang="mi">Te Rōpū Tauira</span></span></div><div class="pk-docmeta"><span>Prepared by the garden committee</span><span>Version 1</span><span>Invented content</span></div><button type="button" class="pk-theme" data-pk-theme hidden><span class="pk-theme-l">Dark</span><span class="pk-theme-d">Light</span></button></div></header>
 <div class="pk-hero"><div class="pk-wrap"><p class="pk-eyebrow">PageKit sample page</p><h1 id="pk-title">Our garden&#x27;s season: what grew, and what we will change</h1><p class="pk-lead">Three related topics in one file. Choose a part to read; the others stay a click away.</p><p class="pk-aud"><span class="pk-chip">For anyone trying the template</span></p></div></div>
-<div class="pk-wrap pk-layout pk-has-parts"><aside class="pk-rail"><nav class="pk-parts" aria-label="Parts of this document" data-pk-sticky><p class="pk-parts-label">In this document</p><ol><li><a href="#plots" data-pk-part="plots"><span class="pk-pn">1</span><span class="pk-pt">What we grew</span><span class="pk-ps">240 plots, who looked after them, and how each went</span></a></li><li><a href="#the-season" data-pk-part="the-season"><span class="pk-pn">2</span><span class="pk-pt">How the season went</span><span class="pk-ps">The site, and every working day of the season</span></a></li><li><a href="#goals" data-pk-part="goals"><span class="pk-pn">3</span><span class="pk-pt">Our goals</span><span class="pk-ps">Five goals and where we stand on each</span></a></li></ol></nav></aside><main id="pk-main" class="pk-main pk-prose" tabindex="-1"><section class="pk-part" id="plots" aria-labelledby="plots-h" data-pk-title="What we grew"><h2 class="pk-part-title" id="plots-h"><span class="pk-pn">1</span> What we grew</h2><p class="pk-part-summary">240 plots, who looked after them, and how each went</p>
+<div class="pk-wrap pk-layout pk-has-parts"><aside class="pk-rail"><nav class="pk-parts" aria-label="Parts of this document" data-pk-sticky><p class="pk-parts-label">In this document</p><p class="pk-parts-group" id="pk-pg-1">The season</p><ol aria-labelledby="pk-pg-1"><li><a href="#plots" data-pk-part="plots"><span class="pk-pn">1</span><span class="pk-pt">What we grew</span><span class="pk-ps">240 plots, who looked after them, and how each went</span></a></li><li><a href="#the-season" data-pk-part="the-season"><span class="pk-pn">2</span><span class="pk-pt">How the season went</span><span class="pk-ps">The site, and every working day of the season</span></a></li></ol><p class="pk-parts-group" id="pk-pg-2">What comes next</p><ol aria-labelledby="pk-pg-2"><li><a href="#goals" data-pk-part="goals"><span class="pk-pn">3</span><span class="pk-pt">Our goals</span><span class="pk-ps">Five goals and where we stand on each</span></a></li></ol></nav></aside><main id="pk-main" class="pk-main pk-prose" tabindex="-1"><section class="pk-part" id="plots" aria-labelledby="plots-h" data-pk-title="What we grew" data-pk-group="The season"><h2 class="pk-part-title" id="plots-h"><span class="pk-pn">1</span> What we grew</h2><p class="pk-part-summary">240 plots, who looked after them, and how each went</p>
 <p>This part lists every plot we planted this season: what grew, who looked after it, and how it
 went. Everything here is invented to show the template.</p>
 <ul class="pk-stats"><li class="pk-stat"><b>240</b><span>plots planted</span></li>
@@ -579,10 +600,17 @@ zone orchard     start 19:30  minutes 20  days sat</code></pre>
 <p>Each of these words explains itself wherever the page first uses it in a section: rest the pointer on
 it, or tab to it.</p>
 <dl class="pk-facts" data-pk-ref="off"><dt id="term-working-bee">Working bee</dt><dd>A day when everyone comes to do one big job together.</dd><dt id="term-raised-bed">Raised bed</dt><dd>A bed built up above the ground, easier on knees and quicker to warm.</dd><dt id="term-companion-planting">Companion planting</dt><dd>Growing plants side by side because each helps the other.</dd></dl>
-</section><section class="pk-part" id="goals" aria-labelledby="goals-h" data-pk-title="Our goals"><h2 class="pk-part-title" id="goals-h"><span class="pk-pn">3</span> Our goals</h2><p class="pk-part-summary">Five goals and where we stand on each</p>
+</section><section class="pk-part" id="goals" aria-labelledby="goals-h" data-pk-title="Our goals" data-pk-group="What comes next"><h2 class="pk-part-title" id="goals-h"><span class="pk-pn">3</span> Our goals</h2><p class="pk-part-summary">Five goals and where we stand on each</p>
 <p>This part sets out the goals we chose for the garden and where each one stands.</p>
 <div class="pk-tablewrap"><table><thead><tr><th>#</th><th>Goal</th><th>Where we are</th></tr></thead>
 <tbody><tr id="goal-1"><th scope="row">1</th><td>Every group has a plot in a <a class="pk-ref pk-term" href="#term-raised-bed" data-pk-ref="term:Raised bed" title="Raised bed: A bed built up above the ground, easier on knees and quicker to warm.">raised bed</a></td><td><span class="pk-chip warn">Five of six groups</span></td></tr><tr id="goal-2"><th scope="row">2</th><td>The north terrace has a windbreak (<a href="#option-fence">the fence</a> is the likeliest)</td><td><span class="pk-chip bad">Not started</span></td></tr><tr id="goal-3"><th scope="row">3</th><td>Fewer than one plot in ten fails</td><td><span class="pk-chip warn">55 of 240 failed</span></td></tr><tr id="goal-4"><th scope="row">4</th><td>Seed saved from every heritage crop</td><td><span class="pk-chip warn">Seven of nine crops</span></td></tr><tr id="goal-5"><th scope="row">5</th><td>A <a class="pk-ref pk-term" href="#term-working-bee" data-pk-ref="term:Working bee" title="Working bee: A day when everyone comes to do one big job together.">working bee</a> every month</td><td><span class="pk-chip ok">Done</span></td></tr></tbody></table></div>
+<h3 id="ideas">Ideas for next season</h3>
+<p>Every idea the groups put forward, marked by how much we want it. The buttons show one level at a
+time; an idea marked with two levels shows under both.</p>
+<ul class="pk-cards" data-pk-filter="must = Must have, should = Should have, could = Could have" data-pk-filter-label="Show ideas by level"><li class="pk-card" data-pk-levels="should"><h4>A second glasshouse</h4><p>Room for twice the seedlings, so the holiday club can grow its own.</p><span class="pk-chip">Should</span> </li><li class="pk-card" data-pk-levels="must"><h4>Rain tanks on the shed</h4><p>Two tanks would water the glasshouse through a dry February.</p><span class="pk-chip">Must</span> </li><li class="pk-card" data-pk-levels="could"><h4>A seed library</h4><p>Saved seed in jars by the gate, free to anyone who brings some back.</p><span class="pk-chip">Could</span> </li><li class="pk-card" data-pk-levels="must"><h4>Paths wide enough for a wheelchair</h4><p>Gravel paths a metre and a half wide to every raised bed.</p><span class="pk-chip">Must</span> </li><li class="pk-card" data-pk-levels="could"><h4>A pizza oven</h4><p>For working bees, and a reason for neighbours to drop in.</p><span class="pk-chip">Could</span> </li><li class="pk-card" data-pk-levels="should could"><h4>A worm farm</h4><p>Kitchen scraps from the hall turned into food for the beds.</p><span class="pk-chip">Should</span> <span class="pk-chip">Could</span> </li></ul>
+<h3 id="shed-needs">What the new shed has to do</h3>
+<p>The list the builder will work from.</p>
+<ol data-pk-filter="must, should, could" data-pk-filter-label="Show the shed's needs by level"><li data-pk-levels="must"><span class="pk-chip">Must</span> Lock, with a key for each group</li><li data-pk-levels="must"><span class="pk-chip">Must</span> Hold every hand tool on a wall rack</li><li data-pk-levels="must"><span class="pk-chip">Must</span> Keep seed dry and cool</li><li data-pk-levels="should"><span class="pk-chip">Should</span> Shelter a working bee of twenty from the rain</li><li data-pk-levels="should"><span class="pk-chip">Should</span> Carry gutters into the rain tanks</li><li data-pk-levels="could"><span class="pk-chip">Could</span> Have a window onto the glasshouse</li><li data-pk-levels="could"><span class="pk-chip">Could</span> Charge a battery mower</li><li data-pk-levels="should"><span class="pk-chip">Should</span> Seat six for morning tea</li></ol>
 <h3 id="why">Why these five</h3>
 <p>They follow from the plots in <a href="#register">part 1</a> and the season in
 <a href="#log">part 2</a>, and from what other gardens have written (<a class="pk-ref" href="#src-gs-02" data-pk-ref="GS-02" title="Source GS-02: Windbreaks for small gardens">GS-02</a>, <a class="pk-ref" href="#src-gs-03" data-pk-ref="GS-03" title="Source GS-03: Keeping a working bee working">GS-03</a>). Ideas for more are welcome on the garden's page, for example
@@ -617,7 +645,7 @@ function storeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function setHash(id) {
   try { history.replaceState(null, "", "#" + id); } catch (e) {}
 }
-var KIT = "tabs long-tables pinned-headings charts cards copy-out copy-blocks section-links";
+var KIT = "tabs level-filter long-tables pinned-headings charts cards copy-out copy-blocks section-links";
 var hooks = {};
 function on(name, fn) { (hooks[name] = hooks[name] || []).push(fn); }
 function fire(name, arg) { (hooks[name] || []).forEach(function (fn) { fn(arg); }); }
@@ -705,7 +733,8 @@ function gather() {
     });
     var own = ent.some(function (x) { return x.m; });
     return ent.map(function (x, i) {
-      return { el: x.p, num: x.m ? x.m[1] : (own ? "" : String(i + 1)), title: x.m ? x.m[2] : x.t, part: x.p };
+      return { el: x.p, num: x.m ? x.m[1] : (own ? "" : String(i + 1)), title: x.m ? x.m[2] : x.t, part: x.p,
+               group: (x.p.getAttribute("data-pk-group") || "").trim() };
     });
   }
   var list = [], toc = doc.querySelector("nav.toc");
@@ -827,8 +856,22 @@ function buildPanel() {
   panel.appendChild(results);
   var nav = el("nav", "pk-nav");
   nav.setAttribute("aria-label", "Contents");
-  navList = el("ol", "pk-l1");
+  var grouped = tier.some(function (e) { return e.group; }), gn = 0;
+  navList = null;
   tier.forEach(function (e, i) {
+    if (!navList || (grouped && e.group)) {
+      navList = el("ol", "pk-l1");
+      if (grouped) {
+        var g = nav.appendChild(el("div", "pk-g"));
+        if (e.group) {
+          var lab = g.appendChild(el("p", "pk-glabel"));
+          lab.id = "pk-glabel-" + (++gn);
+          lab.textContent = e.group;
+          navList.setAttribute("aria-labelledby", lab.id);
+        }
+        g.appendChild(navList);
+      } else nav.appendChild(navList);
+    }
     var li = el("li", "pk-i1"), a = el("a", "pk-a1");
     a.href = "#" + idFor(e.el, "s" + (i + 1));
     if (e.num) a.appendChild(el("span", "pk-pn")).textContent = e.num;
@@ -838,7 +881,6 @@ function buildPanel() {
     e.a = a;
     navList.appendChild(li);
   });
-  nav.appendChild(navList);
   panel.appendChild(nav);
   if (parts.length >= 2) {
     allBtn = el("button", "pk-btn pk-allbtn");
@@ -1049,6 +1091,7 @@ function showPart(p, opts) {
   root.classList.remove("pk-all");
   root.classList.add("pk-one");
   parts.forEach(function (q) { if (q === p) q.removeAttribute("hidden"); else conceal(q); });
+  heroFor(p !== parts[0]);
   current = p;
   label(false);
   fire("shown");
@@ -1067,14 +1110,35 @@ function showAll() {
   root.classList.remove("pk-one");
   root.classList.add("pk-all");
   parts.forEach(function (q) { q.removeAttribute("hidden"); });
+  heroFor(false);
   label(true);
   fire("shown");
   rebuildAll();
   mark(true);
 }
+var heroAway = [];
+function initHero() {
+  var hero = doc.querySelector(".pk-hero");
+  if (!hero || partOf(hero)) return;
+  var n = hero.querySelector("h1");
+  if (!n) heroAway = [hero];
+  for (; n && n !== hero; n = n.parentNode)
+    each(n.parentNode.children, function (s) {
+      if (s !== n && !s.hasAttribute("hidden") && !/^(SCRIPT|STYLE|TEMPLATE)$/.test(s.tagName)) heroAway.push(s);
+    });
+  heroAway.forEach(function (s) {
+    s.classList.add("pk-heroaway");
+    s.addEventListener("beforematch", function () { if (!allMode && current !== parts[0]) showPart(parts[0], { scroll: false, quiet: true, hash: false }); });
+  });
+}
+function heroFor(later) {
+  root.classList.toggle("pk-later", later);
+  heroAway.forEach(function (s) { if (later) conceal(s); else s.removeAttribute("hidden"); });
+}
 function initParts() {
   parts = [].slice.call(doc.querySelectorAll(".pk-part"));
   if (parts.length < 2) { parts = []; return; }
+  initHero();
   live = el("div", "pk-sr");
   live.setAttribute("aria-live", "polite");
   doc.body.appendChild(live);
@@ -1098,6 +1162,7 @@ function reveal(t) {
   if (t.tagName === "SUMMARY") d = t.parentNode;
   while (d) { d.open = true; d = d.parentElement ? d.parentElement.closest("details") : null; }
   var p = partOf(t);
+  if (!p && parts.length && heroAway.some(function (s) { return s.contains(t); })) p = parts[0];
   if (p && parts.length && !allMode && p !== current) showPart(p, { scroll: false, hash: false, quiet: false });
   fire("open", t);
 }
@@ -1246,6 +1311,74 @@ function initTabs() {
 on("start", initTabs);
 on("open", openTabHolding);
 on("find", function () { if (!UNTIL_FOUND) tabGroups.forEach(function (g) { if (!g.every) everyTab(g); }); });
+var levelSets = [];
+function levelSpec(spec) {
+  return spec.split(",").map(function (x) {
+    var at = x.indexOf("="), key = (at < 0 ? x : x.slice(0, at)).trim().toLowerCase().replace(/\s+/g, "-");
+    var name = at < 0 ? "" : x.slice(at + 1).trim();
+    return key ? { key: key, label: name || key.charAt(0).toUpperCase() + key.slice(1) } : null;
+  }).filter(Boolean);
+}
+function pickLevel(s, key) {
+  var shown = 0, first = null;
+  s.key = key;
+  s.items.forEach(function (it) {
+    var on = !key || !it.levels.length || it.levels.indexOf(key) >= 0;
+    it.el.classList.toggle("pk-lvl-out", !on);
+    if (on) { shown++; if (!first) first = it.el; }
+  });
+  s.btns.forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-pk-level") === key ? "true" : "false"); });
+  s.count.textContent = key ? shown + " of " + s.items.length + " shown" : "All " + s.items.length + " shown";
+  if (key && first && first.tagName === "TR" && first.closest("table.pk-collapsed")) fire("open", first);
+  fire("shown");
+  rebuildAll();
+}
+function initLevels() {
+  each(doc.querySelectorAll("[data-pk-filter]"), function (box, si) {
+    var levels = levelSpec(box.getAttribute("data-pk-filter") || "");
+    if (!levels.length || box.getAttribute("data-pk-filter") === "off" || box.hasAttribute("data-pk-filter-done")) return;
+    var items = [].filter.call(box.querySelectorAll("[data-pk-levels]"), function (n) {
+      return n.parentElement.closest("[data-pk-filter]") === box;
+    }).map(function (n) {
+      return { el: n, levels: n.getAttribute("data-pk-levels").toLowerCase().split(/[\s,]+/).filter(Boolean) };
+    });
+    if (!items.length) return;
+    box.setAttribute("data-pk-filter-done", "");
+    var s = { box: box, items: items, btns: [], key: "" };
+    var bar = el("div", "pk-levelbar"), row = el("div", "pk-levelbtns");
+    var name = box.getAttribute("data-pk-filter-label") || box.getAttribute("aria-label") || "Show by level";
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-label", name);
+    if (!box.id) box.id = "pk-levels-" + (si + 1);
+    [{ key: "", label: box.getAttribute("data-pk-filter-all") || "All" }].concat(levels).forEach(function (l) {
+      var b = el("button", "pk-btn pk-levelbtn"), n = l.key ? items.filter(function (it) { return it.levels.indexOf(l.key) >= 0; }).length : items.length;
+      b.type = "button";
+      b.setAttribute("data-pk-level", l.key);
+      b.setAttribute("aria-controls", box.id);
+      b.appendChild(doc.createTextNode(l.label + " "));
+      b.appendChild(el("span", "pk-levn")).textContent = String(n);
+      b.addEventListener("click", function () { pickLevel(s, l.key); });
+      row.appendChild(b);
+      s.btns.push(b);
+    });
+    s.count = el("span", "pk-levelcount");
+    s.count.setAttribute("aria-live", "polite");
+    bar.appendChild(row);
+    bar.appendChild(s.count);
+    var at = box.closest("table") || box, p = at.parentElement;
+    if (at !== box && p && p.children.length === 1 && /(auto|scroll)/.test(getComputedStyle(p).overflowX)) at = p;
+    at.parentNode.insertBefore(bar, at);
+    levelSets.push(s);
+    pickLevel(s, "");
+  });
+}
+function levelsHolding(t) {
+  if (!t || !t.closest || !t.closest(".pk-lvl-out")) return;
+  levelSets.forEach(function (s) { if (s.key && s.box.contains(t)) pickLevel(s, ""); });
+}
+on("start", initLevels);
+on("open", levelsHolding);
+on("find", function () { levelSets.forEach(function (s) { if (s.key) pickLevel(s, ""); }); });
 var PREVIEW = 3, MIN_ROWS = 6, seq = 0;
 var longTables = [], undecided = [];
 function rowsOf(t) {
@@ -1825,7 +1958,7 @@ function nameFor(box) {
 function grid(t) {
   var rows = [], taken = [];
   each(t.rows, function (tr, y) {
-    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered")) return;
+    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered") || tr.classList.contains("pk-lvl-out")) return;
     var row = rows[y] = rows[y] || [], x = 0;
     each(tr.cells, function (c) {
       while (row[x] !== undefined) x++;
@@ -1844,7 +1977,7 @@ function tableHtml(t) {
   var out = doc.createElement("table");
   out.setAttribute("style", "border-collapse:collapse;font-family:Calibri,Aptos,Arial,sans-serif;font-size:11pt");
   each(t.rows, function (tr) {
-    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered")) return;
+    if (tr.closest("table") !== t || tr.classList.contains("pk-filtered") || tr.classList.contains("pk-lvl-out")) return;
     var r = out.insertRow(-1);
     each(tr.cells, function (c) {
       var n = doc.createElement(c.tagName === "TH" ? "th" : "td"), k = cleanCell(c);
@@ -2239,7 +2372,7 @@ function init() {
     if (!t) return;
     if (OWN) go(t, location.hash.slice(1));
     else if (t.tagName === "SUMMARY" && t.parentNode && !t.parentNode.open) { reveal(t); }
-    else if (t.closest && t.closest("table.pk-collapsed, .pk-tabs > .pk-tab[hidden]")) { fire("open", t); try { t.scrollIntoView(); } catch (e) {} }
+    else if (t.closest && t.closest("table.pk-collapsed, .pk-tabs > .pk-tab[hidden], .pk-lvl-out")) { fire("open", t); try { t.scrollIntoView(); } catch (e) {} }
   }
   addEventListener("hashchange", arrive);
   if (location.hash) arrive();

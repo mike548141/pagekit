@@ -55,7 +55,7 @@ or on paper, the page shows everything.
 **A page carries only the features it uses.** Every page carries the core:
 the panel with its search and contents, parts, links that land, light and
 dark, markings and watermarks, print. The other features (`pagekit.FEATURES`:
-tabs, long tables, pinned headings, charts, cards for identifiers and terms,
+tabs, showing items by level, long tables, pinned headings, charts, cards for identifiers and terms,
 copying a table or diagram, copying a block, a link to any section) go into a
 page only when its markup uses them, found while the page is built
 (`features_needed(html)`); nobody keeps a list. A page names any its markup
@@ -88,6 +88,27 @@ to add a feature, are in `docs/optional-features.md`.
   `<section>` carrying the class `cls` turns into a part, titled by its first
   h2 (without a number shown beside it), and its in-page links are then
   followed by the kit, so a link shows the part it points into.
+- **Part groups.** A long document can gather its parts under labels, such
+  as "The story", "The detail" and "Reference": `"group": "The detail"` on a
+  part in `page(parts=…)`, or `data-pk-group="The detail"` on its `<section
+  class="pk-part">`, starts a group that runs to the next part carrying a
+  label. The panel and the no-script contents list show each label above its
+  parts, and each group's list is named by its label for screen readers.
+  Numbering runs on across groups. A part before the first label sits
+  unlabelled at the top; a page with no labels is built as before.
+
+  ```html
+  <section class="pk-part" id="why" data-pk-title="Why" data-pk-group="The story">…</section>
+  <section class="pk-part" id="what" data-pk-title="What changes">…</section>
+  <section class="pk-part" id="costs" data-pk-title="Costs" data-pk-group="The detail">…</section>
+  ```
+- **The title block, one part at a time.** A page's title block
+  (`<div class="pk-hero">`: its kicker, h1, lead and anything else in it)
+  shows whole only with the first part, with every part shown, and on paper.
+  Past the first part it is the h1 alone on one line, so the page keeps its
+  title on screen and for a screen reader; the rest is hidden "until found",
+  so search and find-in-page still reach it, and reaching it shows the first
+  part. Nothing to mark up.
 - **Tabs within a section.** A `<div class="pk-tabs">` holding two or more
   `<section class="pk-tab">` shows one pane at a time under a row of tabs:
   options side by side in a decision paper, say. Each tab is named by its
@@ -98,6 +119,28 @@ to add a feature, are in `docs/optional-features.md`.
   link, a search result or find-in-page reaching a pane not shown opens its
   tab (in Safari the find shortcut shows every pane, as it shows every part).
   With scripting off, or on paper, every pane shows under its heading.
+- **Show items by level.** A container of items, such as a grid of cards or
+  a long list of requirements, gets a row of buttons above it: All, then one
+  per level, each with how many items carry it. A button shows only the items
+  carrying its level; an item carrying several shows under each, and an item
+  carrying none always shows. The buttons say which is pressed
+  (`aria-pressed`), and a count ("12 of 40 shown") is read out to screen
+  readers. On the container, `data-pk-filter` lists the levels in button
+  order, each a one-word key with an optional label after `=`; on each item,
+  `data-pk-levels` names its keys. `data-pk-filter-label` names the button
+  row for screen readers ("Show by level" if not given) and
+  `data-pk-filter-all` relabels All. Items can be cards, list items, sections
+  or table rows (a copied table leaves out rows not shown). A search result,
+  a link or the find shortcut reaching an item not shown goes back to All;
+  with scripting off, or on paper, every item shows.
+
+  ```html
+  <ul class="pk-cards" data-pk-filter="must = Must have, should = Should have, could = Could have"
+      data-pk-filter-label="Show requirements by level">
+    <li class="pk-card" data-pk-levels="must">…</li>
+    <li class="pk-card" data-pk-levels="should could">…</li>
+  </ul>
+  ```
 - **Published date.** `<time data-pk-published>` in a masthead is filled by
   `set_published(html, date)`. `fingerprint(html)` digests only the words a
   reader reads (not styling, scripts, controls, spacing, or the masthead,

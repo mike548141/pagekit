@@ -444,6 +444,87 @@ def test_a_part_titled_with_its_own_number_keeps_it():
 
 
 
+#: Classes the script puts on <html> itself, never on an element inside it.
+ROOT_CLASSES = ("pk-js", "pk-one", "pk-all", "pk-later", "pk-paneled", "pk-slim", "pk-drawer", "pk-paneopen")
+
+
+def test_no_rule_looks_for_a_page_class_inside_another_element():
+    """The script puts pk-js, pk-one and the rest on <html>, so a rule that
+    looks for one inside another element never matches: `.pk-js .pk-one
+    .pk-part` left the margins of eleven hidden parts above part 12."""
+    css = re.sub(r"/\*.*?\*/", "", (ROOT / "src/pagekit/kit.css").read_text(encoding="utf-8"), flags=re.S)
+    selectors = [x.strip() for block in re.findall(r"([^{}]+)\{[^{}]*\}", css) for x in block.split(",")]
+    roots = "|".join(c.replace("-", "\\-") for c in ROOT_CLASSES)
+    bad = [x for x in selectors if re.search(rf"\S\s+[^\s]*\.(?:{roots})\b", x)]
+    assert not bad, f"rules that can never match: {bad}"
+    assert re.search(r"\.pk-js\.pk-one \.pk-part \+ \.pk-part \{ margin-top: 0; \}", css)
+    assert re.search(r"\.pk-part \+ \.pk-part \{ margin-top: 3rem; \}", css), "every part shown keeps its spacing"
+    assert re.search(r"@media print \{[^@]*\.pk-part \+ \.pk-part \{ break-before: page; margin-top: 0; \}", css)
+
+
+def _body(html: str) -> str:
+    """A built page's own markup, without the kit's stylesheet and script."""
+    return html.split("<body>", 1)[1].split(f'<script id="{kit.JS_ID}">', 1)[0]
+
+
+def _nav(html: str) -> str:
+    at = html.index('<nav class="pk-parts"')
+    return html[at:html.index("</nav>", at)]
+
+
+def test_part_groups_label_the_contents_and_numbering_runs_on():
+    parts = [{"title": "Why", "html": "<p>a</p>", "group": "The story"},
+             {"title": "What changes", "html": "<p>b</p>"},
+             {"title": "Costs", "html": "<p>c</p>", "group": "The detail"},
+             {"title": "Terms", "html": "<p>d</p>", "group": "Reference"}]
+    out = kit.page("Plan", parts=parts)
+    nav = _nav(out)
+    assert nav.count('class="pk-parts-group"') == 3 and nav.count("<ol") == 3 and nav.count("</ol>") == 3
+    assert ('<p class="pk-parts-group" id="pk-pg-2">The detail</p><ol aria-labelledby="pk-pg-2">'
+            '<li><a href="#part-costs" data-pk-part="part-costs"><span class="pk-pn">3</span>') in nav
+    assert re.search(r'<section class="pk-part" id="part-costs"[^>]* data-pk-group="The detail">', out)
+    assert 'id="part-what-changes" aria-labelledby="part-what-changes-h" data-pk-title="What changes">' in out
+    late = kit.page("Plan", parts=[{"title": "Start", "html": "x"}, {"title": "Notes", "html": "y", "group": "Reference"}])
+    assert re.search(r'<ol><li><a href="#part-start".*?</ol><p class="pk-parts-group"', _nav(late)), \
+        "a part before the first label sits in an unlabelled list"
+
+
+def test_a_page_without_part_groups_is_built_as_before():
+    out = kit.page("Plan", parts=[{"title": "Why", "html": "<p>a</p>"}, {"title": "How", "html": "<p>b</p>"}])
+    assert "pk-parts-group" not in _body(out) and "data-pk-group" not in _body(out)
+    assert re.fullmatch(r'<nav class="pk-parts"[^>]*><p class="pk-parts-label">In this document</p><ol><li>.*</li></ol>',
+                        _nav(out))
+    blank = kit.page("Plan", parts=[{"title": "Why", "html": "<p>a</p>", "group": " "}, {"title": "How", "html": "<p>b</p>"}])
+    assert blank == out, "a blank label is no label"
+
+
+def test_the_title_block_past_the_first_part_is_the_title_alone_on_screen_only():
+    css = (ROOT / "src/pagekit/kit.css").read_text(encoding="utf-8")
+    js = (ROOT / "src/pagekit/kit.js").read_text(encoding="utf-8")
+    screen = re.search(r"@media screen \{\n  \.pk-js\.pk-one\.pk-later \.pk-hero \{.*?\n\}", css, re.S)
+    assert screen and ".pk-later .pk-hero h1" in screen.group(0), "the one-line title is for the screen only"
+    assert re.search(r"@media print \{[^@]*\.pk-heroaway\[hidden\] \{ display: block !important", css)
+    assert re.search(r"\.pk-heroaway\[hidden=\"until-found\"\] \{ margin: 0 !important", css), \
+        "what is hidden until found leaves no margin behind"
+    assert re.search(r"function showAll\(\) \{\n(?:  .*\n)*?  heroFor\(false\);", js), "every part shown, the block is whole"
+    built = kit.page("Plan", eyebrow="Kicker", lead="Lead.", parts=[{"title": "A", "html": "x"}, {"title": "B", "html": "y"}])
+    assert _body(built).count("<h1") == 1 and "pk-heroaway" not in _body(built), "the script acts, not the build"
+
+
+def test_items_shown_by_level_all_show_without_the_script_and_on_paper():
+    css = (ROOT / "src/pagekit/kit.css").read_text(encoding="utf-8")
+    js = (ROOT / "src/pagekit/kit.js").read_text(encoding="utf-8")
+    assert re.search(r"@media screen \{ \.pk-lvl-out[^}]*display: none !important; \}", css), \
+        "an item not shown is hidden on screen only, so paper shows every item"
+    assert "display: none" not in re.sub(r"@media screen \{[^}]*\}", "", _chunks(ROOT / "src/pagekit/kit.css")["level-filter"]
+                                         ).replace(".pk-levelbar { display: none", "")
+    assert js.count('tr.classList.contains("pk-filtered") || tr.classList.contains("pk-lvl-out")') == 2, \
+        "a copied table leaves out the rows not shown"
+    out = kit.page("Needs", body='<ol data-pk-filter="must, should"><li data-pk-levels="must">Lock</li>'
+                                 '<li data-pk-levels="should could">Bench</li></ol>')
+    assert "level-filter" in kit.features_carried(out) and "pk-lvl-out" not in _body(out)
+
+
 # ── pages carry the core and only the features they use ──────────────────────
 
 _FENCE = re.compile(r"^/\* pk:feature ([a-z-]+) \*/\n(.*?)^/\* pk:end \1 \*/\n", re.S | re.M)
@@ -540,6 +621,9 @@ USES = {
     "tabs": ('<div class="pk-tabs"><section class="pk-tab"><h3>A</h3></section>'
              '<section class="pk-tab"><h3>B</h3></section></div>',
              '<div class="pk-tabs"><section class="pk-tab"><p>one pane</p></section></div>'),
+    "level-filter": ('<ul class="pk-cards" data-pk-filter="must = Must have, could"><li class="pk-card" '
+                     'data-pk-levels="must">A</li></ul>',
+                     '<ul data-pk-filter="off"><li data-pk-levels="must">A</li></ul><p data-pk-find="off">B</p>'),
     "long-tables": ("<table><tbody>" + "<tr><td>1</td></tr>" * 6 + "</tbody></table>",
                     "<figure><table><tbody>" + "<tr><td>1</td></tr>" * 9 + "</tbody></table></figure>"),
     "pinned-headings": ("<table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>",
