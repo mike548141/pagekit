@@ -9,11 +9,11 @@
   "local": {
     "guard": {
       "run": "tools/guard.py",
-      "why": "PageKit's own publication guard: no address, host name, email address or GUID outside the reserved and documentation ranges, and no term from a contributor's own denylist, in any tracked file. FORBIDS THE ACT: a public history cannot be recalled"
+      "why": "goodcopy's own publication guard: no address, host name, email address or GUID outside the reserved and documentation ranges, and no term from a contributor's own denylist, in any tracked file. FORBIDS THE ACT: a public history cannot be recalled"
     },
     "extra-hook": {
       "run": "tools/extra_hook.py",
-      "why": "a contributor's own pre-commit check, named in their clone's git config as pagekit.extraHook and kept outside the repository; passes when none is set",
+      "why": "a contributor's own pre-commit check, named in their clone's git config as goodcopy.extraHook and kept outside the repository; passes when none is set",
       "planes": ["hook"]
     }
   }

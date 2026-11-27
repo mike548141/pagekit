@@ -2,6 +2,10 @@
 
 ## 0.1.0 (unreleased)
 
+- PageKit now lives in `pagekit/` of the goodcopy repository, still its own
+  package: install it with
+  `pip install "pagekit @ git+https://github.com/mike548141/goodcopy#subdirectory=pagekit"`.
+  The package itself is unchanged by the move.
 - First public version: `page`, `apply`, `compose`, `check`, `mark_parts`,
   `link_refs`, `set_marks`, `set_published`, `fingerprint`, `set_skip`; the
   panel, parts, long tables, pinned headings, links that land, a link to any

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 98 47" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>How goodcopy is meant to be used</title>
+  <desc>Source material is gathered, then kept as working files. A build turns each working file into a deliverable, and PageKit makes each page one self-contained file with reader features. The brand file feeds the build and PageKit. Everything lands in an output folder that is never edited by hand.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="4" markerHeight="4" orient="auto">
+      <path d="M0 0 L6 3 L0 6 Z" fill="#4a4f57"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="98" height="47" rx="1.5" fill="#ffffff"/>
+
+  <!-- The brand, as data: feeds the build and PageKit -->
+  <rect x="38.5" y="2" width="40.5" height="8" rx="1" fill="#f3f1ec" stroke="#8a8578" stroke-width="0.25"/>
+  <text x="58.75" y="5.4" text-anchor="middle" font-size="1.8" font-weight="700" fill="#1f2328">Brand file</text>
+  <text x="58.75" y="8.1" text-anchor="middle" font-size="1.3" fill="#1f2328">name, logo, palette, font: data, not styles</text>
+  <line x1="49" y1="10" x2="49" y2="15.6" stroke="#4a4f57" stroke-width="0.3" marker-end="url(#arrow)"/>
+  <line x1="68.5" y1="10" x2="68.5" y2="15.6" stroke="#4a4f57" stroke-width="0.3" marker-end="url(#arrow)"/>
+
+  <!-- 1 Source material: you -->
+  <rect x="2" y="16" width="16" height="17" rx="1" fill="#f3f1ec" stroke="#8a8578" stroke-width="0.25"/>
+  <text x="10" y="19.6" text-anchor="middle" font-size="1.7" font-weight="700" fill="#1f2328">Source material</text>
+  <text x="10" y="23" text-anchor="middle" font-size="1.25" fill="#1f2328">notes, exports,</text>
+  <text x="10" y="24.8" text-anchor="middle" font-size="1.25" fill="#1f2328">papers and data</text>
+  <text x="10" y="26.6" text-anchor="middle" font-size="1.25" fill="#1f2328">you gathered</text>
+
+  <!-- 2 Working files: you -->
+  <rect x="21.5" y="16" width="16" height="17" rx="1" fill="#f3f1ec" stroke="#8a8578" stroke-width="0.25"/>
+  <text x="29.5" y="19.6" text-anchor="middle" font-size="1.7" font-weight="700" fill="#1f2328">Working files</text>
+  <text x="29.5" y="23" text-anchor="middle" font-size="1.25" fill="#1f2328">prose, settings,</text>
+  <text x="29.5" y="24.8" text-anchor="middle" font-size="1.25" fill="#1f2328">data tables, registers,</text>
+  <text x="29.5" y="26.6" text-anchor="middle" font-size="1.25" fill="#1f2328">hand-written HTML,</text>
+  <text x="29.5" y="28.4" text-anchor="middle" font-size="1.25" fill="#1f2328">build scripts</text>
+
+  <!-- 3 Build: goodcopy, not in the repository yet -->
+  <rect x="41" y="16" width="16" height="17" rx="1" fill="#ffffff" stroke="#2a7f62" stroke-width="0.3" stroke-dasharray="1 0.6"/>
+  <text x="49" y="19.6" text-anchor="middle" font-size="1.7" font-weight="700" fill="#1f2328">Build</text>
+  <text x="49" y="23" text-anchor="middle" font-size="1.25" fill="#1f2328">each working file</text>
+  <text x="49" y="24.8" text-anchor="middle" font-size="1.25" fill="#1f2328">into a deliverable</text>
+  <text x="49" y="28.4" text-anchor="middle" font-size="1.15" font-style="italic" fill="#1f5e48">today: your own</text>
+  <text x="49" y="30.1" text-anchor="middle" font-size="1.15" font-style="italic" fill="#1f5e48">short build script</text>
+
+  <!-- 4 PageKit: goodcopy, in the repository today -->
+  <rect x="60.5" y="16" width="16" height="17" rx="1" fill="#e3f1ea" stroke="#2a7f62" stroke-width="0.3"/>
+  <text x="68.5" y="19.6" text-anchor="middle" font-size="1.7" font-weight="700" fill="#1f2328">PageKit</text>
+  <text x="68.5" y="23" text-anchor="middle" font-size="1.25" fill="#1f2328">reader features,</text>
+  <text x="68.5" y="24.8" text-anchor="middle" font-size="1.25" fill="#1f2328">the brand applied,</text>
+  <text x="68.5" y="26.6" text-anchor="middle" font-size="1.25" fill="#1f2328">one self-contained</text>
+  <text x="68.5" y="28.4" text-anchor="middle" font-size="1.25" fill="#1f2328">file per page</text>
+
+  <!-- 5 Output folder -->
+  <rect x="80" y="16" width="16" height="17" rx="1" fill="#ffffff" stroke="#4a4f57" stroke-width="0.3"/>
+  <text x="88" y="19.6" text-anchor="middle" font-size="1.7" font-weight="700" fill="#1f2328">Output folder</text>
+  <text x="88" y="23" text-anchor="middle" font-size="1.25" fill="#1f2328">what readers get;</text>
+  <text x="88" y="24.8" text-anchor="middle" font-size="1.25" fill="#1f2328">rebuilt, never</text>
+  <text x="88" y="26.6" text-anchor="middle" font-size="1.25" fill="#1f2328">edited by hand</text>
+
+  <line x1="18" y1="24.5" x2="21.1" y2="24.5" stroke="#4a4f57" stroke-width="0.3" marker-end="url(#arrow)"/>
+  <line x1="37.5" y1="24.5" x2="40.6" y2="24.5" stroke="#4a4f57" stroke-width="0.3" marker-end="url(#arrow)"/>
+  <line x1="57" y1="24.5" x2="60.1" y2="24.5" stroke="#4a4f57" stroke-width="0.3" marker-end="url(#arrow)"/>
+  <line x1="76.5" y1="24.5" x2="79.6" y2="24.5" stroke="#4a4f57" stroke-width="0.3" marker-end="url(#arrow)"/>
+
+  <!-- Key -->
+  <rect x="2" y="38" width="3" height="2.4" rx="0.4" fill="#f3f1ec" stroke="#8a8578" stroke-width="0.25"/>
+  <text x="6" y="39.8" font-size="1.3" fill="#1f2328">You supply it</text>
+  <rect x="24" y="38" width="3" height="2.4" rx="0.4" fill="#e3f1ea" stroke="#2a7f62" stroke-width="0.3"/>
+  <text x="28" y="39.8" font-size="1.3" fill="#1f2328">goodcopy provides it, in this repository today</text>
+  <rect x="62" y="38" width="3" height="2.4" rx="0.4" fill="#ffffff" stroke="#2a7f62" stroke-width="0.3" stroke-dasharray="1 0.6"/>
+  <text x="66" y="39.8" font-size="1.3" fill="#1f2328">goodcopy will provide it; not here yet</text>
+  <text x="2" y="44.2" font-size="1.15" fill="#4a4f57">The worked example in the README follows one invented organisation through every stage.</text>
+</svg>

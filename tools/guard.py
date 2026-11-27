@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""PageKit's publication guard: no organisation's data in the repository.
+"""goodcopy's publication guard: no organisation's data in the repository.
 
-PageKit builds pages for real organisations, so the most likely way for it to go
+goodcopy builds deliverables for real organisations, so the most likely way for it to go
 wrong is for one of them to end up inside it: a name in an example, a hostname in
 a test, a heading lifted from a real report into a comment. This guard scans every
 tracked file, plus the commit message when run as a hook, for identifiers that
@@ -30,8 +30,8 @@ What it cannot see: meaning. A sentence that describes an organisation without
 naming anything is invisible to it. A human or model review for meaning is the
 check for that, and this guard is only the floor beneath it.
 
-**Optional external denylist.** Anyone who works on PageKit alongside their
-own private data can point ``git config pagekit.denylist`` at a local file
+**Optional external denylist.** Anyone who works on goodcopy alongside their
+own private data can point ``git config goodcopy.denylist`` at a local file
 holding one term per line. The file stays outside the repository. Text and
 terms are both reduced to word pieces: runs of letters and runs of digits,
 case folded, accents stripped, camelCase split. A term matches when its pieces
@@ -136,15 +136,15 @@ def load_hostname_data() -> set[str]:
 
 
 def load_denylist() -> list[Term]:
-    path = subprocess.run(["git", "-C", str(ROOT), "config", "--get", "pagekit.denylist"],
+    path = subprocess.run(["git", "-C", str(ROOT), "config", "--get", "goodcopy.denylist"],
                           capture_output=True, text=True).stdout.strip()
     if not path:
-        print("guard: no external denylist configured (git config pagekit.denylist); "
+        print("guard: no external denylist configured (git config goodcopy.denylist); "
               "generic checks only.", file=sys.stderr)
         return []
     p = Path(path).expanduser()
     if not p.is_file():
-        raise SystemExit(f"guard: pagekit.denylist points at {p}, which does not exist. "
+        raise SystemExit(f"guard: goodcopy.denylist points at {p}, which does not exist. "
                          "Refusing to run with a configured-but-missing denylist.")
     lines = [ln.strip() for ln in p.read_text().splitlines() if ln.strip() and not ln.startswith("#")]
     # Terms are never printed back: the report names the file and line only.
@@ -209,9 +209,14 @@ def main(argv: list[str]) -> int:
     host_data = load_hostname_data()
     deny = load_denylist()
     hits: list[str] = []
+    licence = (ROOT / "LICENSE").read_bytes()
     for path in tracked_files():
         rel = path.relative_to(ROOT).as_posix()
-        if rel == "LICENSE" or not path.is_file():
+        if not path.is_file():
+            continue
+        # The licence text, and a package's copy of it only while byte-identical
+        # (a distribution's licence file must sit inside its own folder).
+        if path.name == "LICENSE" and path.read_bytes() == licence:
             continue
         raw = path.read_bytes()
         if b"\0" in raw[:8192]:
@@ -224,7 +229,7 @@ def main(argv: list[str]) -> int:
         body = "\n".join(ln for ln in msg.splitlines() if not ln.startswith("#"))
         hits += scan_text("commit message", body, allow, deny)
     if hits:
-        print("guard: FAILED. PageKit carries no organisation's data.\n  " + "\n  ".join(hits),
+        print("guard: FAILED. goodcopy carries no organisation's data.\n  " + "\n  ".join(hits),
               file=sys.stderr)
         print("Replace each with a reserved stand-in (example.test, 192.0.2.x, 2001:db8::, "
               "00000000-0000-4000-8000-…). A genuinely public reference domain goes in "

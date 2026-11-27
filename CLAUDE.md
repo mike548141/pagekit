@@ -107,20 +107,28 @@ in atelier and is read on demand — never wholesale.
   repo like any other: it may be named, and in a public tree what it holds and
   its condition go by type only (`RECORD.md` § *The record is public*).
 - **This repo's visibility:** public on GitHub, with secret scanning and push protection on.
-  Verify: `gh repo view mike548141/pagekit --json visibility`.
+  Verify: `gh repo view mike548141/goodcopy --json visibility`.
 <!-- stamp:end -->
 
 ---
 
-# CLAUDE.md: session onramp for PageKit
+# CLAUDE.md: session onramp for goodcopy
 
-**PageKit** turns HTML into one self-contained, brandable page with reader
-features built in: a contents panel with search, parts shown one at a time,
-long tables that open at their first rows, pinned table headings, links that
-land in closed sections, tabs within a section, identifiers and defined terms that explain themselves, copying a table
-or a diagram out, a link to any section, charts that draw when seen, security
-markings and watermarks. It is standard-library Python plus one stylesheet and
-one script, inlined into every page. `README.md` is the reference.
+**goodcopy** is a toolkit for turning working files into finished, branded
+deliverables. `README.md` is the guide to how it is meant to be used, with the
+flow drawn in `docs/flow.svg`; when a piece lands that adds or changes a stage,
+bring that guide up to date in the same change.
+
+Its first piece is **PageKit** (`pagekit/`), its own installable package with
+its own `pyproject.toml`: HTML into one self-contained, brandable page with
+reader features built in (a contents panel with search, parts shown one at a
+time, long tables that open at their first rows, pinned table headings, links
+that land in closed sections, tabs within a section, identifiers and defined
+terms that explain themselves, copying a table or a diagram out, a link to any
+section, charts that draw when seen, security markings and watermarks). It is
+standard-library Python plus one stylesheet and one script, inlined into every
+page. `pagekit/README.md` is its reference. Keep it standard-library only:
+other pieces may depend on PageKit, never the other way round.
 
 ## 🛑 The rule that outranks everything else here
 
@@ -140,7 +148,8 @@ memory kept for this project.
   real reader. Write the capability, never the circumstance: "supports X",
   never "because a report needed X". The circumstance stays with whoever
   brought it.
-- **Examples are invented.** The sample page is an invented community garden's season report;
+- **Examples are invented.** The sample page and the README's worked example are an invented
+  trust's community garden season report;
   tests use invented identifiers and reserved names (`example.test`,
   `example.org`). Never copy a real page, heading or table into a test.
 - **Measurements of hosting environments are welcome** (what a document
@@ -153,19 +162,23 @@ memory kept for this project.
 - `tools/guard.py` scans every tracked file and every commit message for
   addresses, hostnames, email addresses and GUIDs outside the reserved and
   documentation ranges, and for terms in a contributor's own denylist
-  (`git config pagekit.denylist <file>`, kept outside the repository). It fails
+  (`git config goodcopy.denylist <file>`, kept outside the repository). It fails
   and never skips.
 - atelier's floor (`.githooks/pre-commit`, decisions in `.atelier-floor.json`)
   runs secret, leak, licence and link scans, then the guard, then any
-  contributor check named in `git config pagekit.extraHook`.
+  contributor check named in `git config goodcopy.extraHook`.
 - GitHub secret scanning and push protection are on for the repository.
 
-## Working on the kit
+## Working on it
 
-- `make venv` once, then `make check` (guard, ruff, mypy, pytest) before every
-  commit. `make hooks` once per clone.
-- Exercise every feature in real engines with `tools/probe.py` (Playwright,
-  Chromium and WebKit, four ways each). A new feature gets a probe check, and
-  the check is proved by breaking the feature once.
-- The traps already paid for are in `README.md` § *Changing the kit*.
+- `make venv` once, then `make check` (the guard over the whole repository,
+  then ruff, mypy and pytest for each package) before every commit. `make
+  hooks` once per clone.
+- Each package keeps its own source, tests, examples and settings in its own
+  folder (`pagekit/`); the repository's guards, records and the usage guide sit
+  at the top.
+- Exercise every PageKit feature in real engines with `pagekit/tools/probe.py`
+  (Playwright, Chromium and WebKit, four ways each). A new feature gets a probe
+  check, and the check is proved by breaking the feature once.
+- The traps already paid for are in `pagekit/README.md` § *Changing the kit*.
 - Session records go in `docs/sessions/YYYY-MM-DD-HHMM-slug.md`, `HHMM` in UTC.

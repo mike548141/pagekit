@@ -46,11 +46,11 @@ status=0
 python3 "$tools_dir/floor.py" --plane msg --root "$repo_root" \
     --tools "$tools_dir" --message-file "$msg_file" || status=1
 
-# PageKit's own: commit messages are public too, so the guard reads the message
+# goodcopy's own: commit messages are public too, so the guard reads the message
 # as well as the tree, and a contributor's optional check sees it
 # (called as: <command> commit-msg FILE).
 python3 "$repo_root/tools/guard.py" --msg "$msg_file" || status=1
-extra="$(git config --get pagekit.extraHook)"
+extra="$(git config --get goodcopy.extraHook)"
 if [ -n "$extra" ]; then
     sh -c "$extra commit-msg \"\$1\"" sh "$msg_file" || status=1
 fi

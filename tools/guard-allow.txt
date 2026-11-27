@@ -3,7 +3,9 @@
 # must point at no particular organisation's estate: standards bodies,
 # publishers of guidance, and software projects. Adding a line is a reviewed
 # change.
-github.com                    # where PageKit is published
+github.com                    # where goodcopy is published
 python.org                    # the atelier floor hook names the Python installer
 w3.org                        # the SVG namespace every inline drawing declares
 protectivesecurity.govt.nz    # the published New Zealand Protective Security Requirements, cited for markings
+# The AI coding assistant's co-author trailer address in commit messages.
+anthropic.com

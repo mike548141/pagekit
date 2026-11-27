@@ -9,5 +9,5 @@ __pycache__/
 build/
 dist/
 probe-shots/
-examples/small.html
-examples/table_term.html
+pagekit/examples/small.html
+pagekit/examples/table_term.html

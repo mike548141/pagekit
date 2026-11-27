@@ -1,9 +1,10 @@
-# PageKit: the whole gate. The guard runs first and needs only the standard
-# library; lint, type checks and tests run from the project virtualenv.
+# goodcopy: the whole gate. The guard runs first over the whole repository and
+# needs only the standard library; lint, type checks and tests run from the
+# project virtualenv, package by package, each with its own pyproject.toml.
 PY ?= python3
 VENV ?= .venv
 ATELIER ?= ../atelier
-VPY := $(VENV)/bin/python
+VPY := $(abspath $(VENV))/bin/python
 
 .PHONY: check guard lint types test venv hooks sample
 
@@ -12,22 +13,24 @@ check: guard lint types test
 guard:
 	$(PY) tools/guard.py
 
+# The repository's own tools are linted with PageKit's settings.
 lint:
-	$(VPY) -m ruff check src tests tools examples
+	cd pagekit && $(VPY) -m ruff check src tests tools examples
+	$(VPY) -m ruff check --config pagekit/pyproject.toml tools
 
 types:
-	$(VPY) -m mypy src
+	cd pagekit && $(VPY) -m mypy src
 
 test:
-	$(VPY) -m pytest -q
+	cd pagekit && $(VPY) -m pytest -q
 
 sample:
-	$(VPY) examples/sample.py
+	cd pagekit && $(VPY) examples/sample.py
 
-# Once per clone: a virtualenv with the package installed in editable mode.
+# Once per clone: a virtualenv with each package installed in editable mode.
 venv:
 	$(PY) -m venv $(VENV)
-	$(VPY) -m pip install -e '.[dev]'
+	$(VPY) -m pip install -e './pagekit[dev]'
 
 # Once per clone: atelier's floor on every commit (the guard runs inside it as a
 # local check, see .atelier-floor.json) and the guard on every commit message.

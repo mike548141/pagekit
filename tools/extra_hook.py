@@ -2,10 +2,10 @@
 """Run a contributor's own pre-commit check, if they have named one.
 
 The tracked pre-commit hook is atelier's floor shim, which names no check of its
-own. PageKit's checks reach it as ``local`` entries in ``.atelier-floor.json``,
+own. goodcopy's checks reach it as ``local`` entries in ``.atelier-floor.json``,
 and this is one of them: it runs the command a contributor set with
 
-    git config pagekit.extraHook "<command>"
+    git config goodcopy.extraHook "<command>"
 
 as ``<command> pre-commit``, from the top of the working tree, and fails when
 that command fails. The command and whatever it reads stay outside the
@@ -23,10 +23,10 @@ import sys
 def main() -> int:
     top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                          capture_output=True, text=True, check=True).stdout.strip()
-    extra = subprocess.run(["git", "config", "--get", "pagekit.extraHook"],
+    extra = subprocess.run(["git", "config", "--get", "goodcopy.extraHook"],
                            capture_output=True, text=True, check=False).stdout.strip()
     if not extra:
-        print("extra_hook: no pagekit.extraHook set; nothing to run.")
+        print("extra_hook: no goodcopy.extraHook set; nothing to run.")
         return 0
     # A shell, as the hook always used: the command is the contributor's own,
     # set in their own clone's config, so it runs with their own authority.
